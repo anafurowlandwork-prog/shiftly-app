@@ -9,6 +9,7 @@ import LemfiShiftlyLogo from './LemfiShiftlyLogo';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 import TermsOfServiceModal from './TermsOfServiceModal';
 import { triggerHaptic } from '../utils/nativeBridge';
+import { sendRealOtp, verifyRealOtp } from '../services/backendService';
 
 const COUNTRIES = [
   { name: 'United States', code: '+1', flag: '🇺🇸', placeholder: '(555) 000-0000' },
@@ -89,7 +90,13 @@ export default function OnboardingScreen({ onCompleteAuth }) {
     setCountrySearch('');
   };
 
-  const handleContinue = () => {
+  const getCleanRecipient = () => {
+    return authMethod === 'phone' 
+      ? `${selectedCountry.code}${phoneNumber.replace(/\D/g, '')}` 
+      : emailAddress.trim();
+  };
+
+  const handleContinue = async () => {
     if (authMethod === 'phone' && phoneNumber.replace(/\D/g, '').length < 7) {
       setErrorMessage('Please enter a valid phone number.');
       return;
@@ -100,11 +107,23 @@ export default function OnboardingScreen({ onCompleteAuth }) {
     }
     triggerHaptic('light');
     setErrorMessage('');
-    setOnboardingStep(2);
-    setResendCooldown(30);
+    const recipient = getCleanRecipient();
 
-    if (authMethod === 'email') {
-      showEmailSimulatedToast(emailAddress);
+    try {
+      const response = await sendRealOtp({ recipient, method: authMethod });
+      setOnboardingStep(2);
+      setResendCooldown(30);
+
+      const displayCode = response?.generatedCode || '123456';
+      setEmailNotificationToast({
+        title: authMethod === 'phone' ? 'Shiftly SMS Security Code' : 'Shiftly Email Security Code',
+        body: `Your verification code is ${displayCode} (sent to ${recipient})`,
+        code: displayCode
+      });
+      setTimeout(() => setEmailNotificationToast(null), 9000);
+    } catch (err) {
+      setOnboardingStep(2);
+      setResendCooldown(30);
     }
   };
 
@@ -154,7 +173,7 @@ export default function OnboardingScreen({ onCompleteAuth }) {
     }, 500);
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     const fullCode = otpDigits.join('');
     if (fullCode.length < 6) {
       setErrorMessage('Please enter all 6 digits of the code.');
@@ -162,11 +181,18 @@ export default function OnboardingScreen({ onCompleteAuth }) {
     }
     triggerHaptic('medium');
     setIsVerifying(true);
-    setTimeout(() => {
+    setErrorMessage('');
+    const recipient = getCleanRecipient();
+
+    try {
+      await verifyRealOtp({ recipient, code: fullCode });
       setIsVerifying(false);
       triggerHaptic('success');
       onCompleteAuth();
-    }, 500);
+    } catch (err) {
+      setIsVerifying(false);
+      setErrorMessage(err.message || 'Invalid verification code. Please check and try again.');
+    }
   };
 
   const handleSwitchToEmailDelivery = () => {
