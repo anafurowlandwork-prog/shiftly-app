@@ -1,20 +1,30 @@
-import React, { useState } from 'react';
-import { MapPin, Calendar, Clock, Box, ShieldCheck, ArrowRight, Check, CreditCard, Sparkles, Plus, Minus, Home, Briefcase, Warehouse, Tag, Layers, Camera } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { MapPin, Calendar, Clock, Box, ShieldCheck, ArrowRight, Check, CreditCard, Sparkles, Plus, Minus, Home, Briefcase, Warehouse, Tag, Layers, Camera, Search, Navigation } from 'lucide-react';
 import VehicleSelector, { VEHICLE_TIERS } from './VehicleSelector';
 import AIItemScannerModal from './AIItemScannerModal';
 import CheckoutModal from './CheckoutModal';
 import { createMoveBooking } from '../services/backendService';
+import { searchAddressSuggestions, geocodeAddress, calculateDistanceMiles } from '../utils/geoUtils';
 
 export default function BookingWizard({ onBookingConfirmed }) {
   const [step, setStep] = useState(1);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
 
-
-  // Form State
-  const [pickupAddress, setPickupAddress] = useState('742 Evergreen Terrace, Boston, MA');
-  const [dropoffAddress, setDropoffAddress] = useState('1200 Beacon Street, Brookline, MA');
+  // Form State - Starts empty with intuitive placeholders
+  const [pickupAddress, setPickupAddress] = useState('');
+  const [dropoffAddress, setDropoffAddress] = useState('');
   const [viaStopAddress, setViaStopAddress] = useState('');
   const [hasViaStop, setHasViaStop] = useState(false);
+
+  // Real Geocoded GPS Coordinates
+  const [pickupCoords, setPickupCoords] = useState(null);
+  const [dropoffCoords, setDropoffCoords] = useState(null);
+
+  // Live Autocomplete Suggestions
+  const [pickupSuggestions, setPickupSuggestions] = useState([]);
+  const [dropoffSuggestions, setDropoffSuggestions] = useState([]);
+  const [isSearchingPickup, setIsSearchingPickup] = useState(false);
+  const [isSearchingDropoff, setIsSearchingDropoff] = useState(false);
 
   const [moveDate, setMoveDate] = useState('Today (Immediate Dispatch)');
   const [timeSlot, setTimeSlot] = useState('ASAP (Mover arrives in ~30 mins)');
@@ -45,7 +55,40 @@ export default function BookingWizard({ onBookingConfirmed }) {
   const [selectedVehicle, setSelectedVehicle] = useState(VEHICLE_TIERS[1]);
   const [helpersCount, setHelpersCount] = useState(2);
 
-  const calculatedDistance = hasViaStop ? 18.5 : 14.2;
+  // Debounced Address Search for Pickup
+  useEffect(() => {
+    if (!pickupAddress || pickupAddress.length < 3) {
+      setPickupSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setIsSearchingPickup(true);
+      const results = await searchAddressSuggestions(pickupAddress);
+      setPickupSuggestions(results);
+      setIsSearchingPickup(false);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [pickupAddress]);
+
+  // Debounced Address Search for Dropoff
+  useEffect(() => {
+    if (!dropoffAddress || dropoffAddress.length < 3) {
+      setDropoffSuggestions([]);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setIsSearchingDropoff(true);
+      const results = await searchAddressSuggestions(dropoffAddress);
+      setDropoffSuggestions(results);
+      setIsSearchingDropoff(false);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [dropoffAddress]);
+
+  // Real Calculated Haversine Distance
+  const calculatedDistance = (pickupCoords && dropoffCoords) 
+    ? calculateDistanceMiles(pickupCoords, dropoffCoords) + (hasViaStop ? 4.5 : 0)
+    : (hasViaStop ? 16.5 : 12.0);
 
   const updateItemQty = (itemKey, delta) => {
     setItems((prev) => ({
@@ -79,10 +122,18 @@ export default function BookingWizard({ onBookingConfirmed }) {
 
   const handlePaymentSuccess = async (paidDetails) => {
     setIsCheckoutOpen(false);
+
+    // Resolve exact GPS coordinates
+    const finalPickupCoords = pickupCoords || await geocodeAddress(pickupAddress || '10 Oxford St, London');
+    const finalDropoffCoords = dropoffCoords || await geocodeAddress(dropoffAddress || '25 King’s Rd, London');
+
     const newBooking = {
       id: 'SHFT-' + Math.floor(100000 + Math.random() * 900000),
-      pickup: pickupAddress,
-      dropoff: dropoffAddress,
+      pickup: pickupAddress || '10 Oxford St, London',
+      dropoff: dropoffAddress || '25 King’s Rd, London',
+      pickupCoordinates: finalPickupCoords,
+      dropoffCoordinates: finalDropoffCoords,
+      distanceMiles: calculatedDistance,
       viaStop: hasViaStop ? viaStopAddress : null,
       date: moveDate,
       time: timeSlot,
@@ -99,8 +150,8 @@ export default function BookingWizard({ onBookingConfirmed }) {
         name: 'Marcus Vance',
         rating: '4.98 ★',
         trips: '480+ moves',
-        phone: '+1 (555) 392-8190',
-        vehiclePlate: 'MA 7XF-992',
+        phone: '+44 7378 142815',
+        vehiclePlate: 'LX24 XFR',
         photo: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=256&q=80',
       },
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
@@ -155,77 +206,198 @@ export default function BookingWizard({ onBookingConfirmed }) {
           </div>
 
           <div style={{ background: '#ffffff', borderRadius: '20px', border: '1px solid var(--border-subtle)', padding: '16px', marginBottom: '14px', boxShadow: 'var(--shadow-sm)' }}>
-            <div style={{ marginBottom: '12px' }}>
-              <label className="input-label" style={{ color: 'var(--accent-blue)' }}>PICKUP LOCATION</label>
-              <div className="phone-input-wrapper" style={{ margin: 0 }}>
-                <MapPin size={18} color="var(--accent-blue)" />
+            
+            {/* PICKUP INPUT WITH LIVE AUTOCOMPLETE */}
+            <div style={{ marginBottom: '14px', position: 'relative' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label className="input-label" style={{ color: 'var(--accent-blue)', margin: 0 }}>PICKUP LOCATION</label>
+                {isSearchingPickup && <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Searching maps...</span>}
+              </div>
+              <div className="phone-input-wrapper" style={{ margin: 0, position: 'relative' }}>
+                <MapPin size={18} color="var(--accent-blue)" style={{ flexShrink: 0 }} />
                 <input
                   type="text"
                   className="phone-input"
                   style={{ fontSize: '0.925rem' }}
                   value={pickupAddress}
                   onChange={(e) => setPickupAddress(e.target.value)}
-                  placeholder="Street address, city, zip"
+                  placeholder="e.g. 10 Oxford Street, London or Postcode"
                 />
               </div>
+
+              {/* Pickup Suggestions Dropdown */}
+              {pickupSuggestions.length > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  background: '#ffffff',
+                  borderRadius: '12px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                  border: '1px solid #e2e8f0',
+                  zIndex: 1000,
+                  marginTop: '4px',
+                  overflow: 'hidden'
+                }}>
+                  {pickupSuggestions.map((sug, i) => (
+                    <div
+                      key={i}
+                      onClick={() => {
+                        setPickupAddress(sug.displayName);
+                        setPickupCoords([sug.lat, sug.lng]);
+                        setPickupSuggestions([]);
+                      }}
+                      style={{
+                        padding: '10px 14px',
+                        borderBottom: i < pickupSuggestions.length - 1 ? '1px solid #f1f5f9' : 'none',
+                        cursor: 'pointer',
+                        fontSize: '0.82rem',
+                        color: '#09090b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <MapPin size={14} color="#0052ff" />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {sug.displayName}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {hasViaStop && (
-              <div style={{ marginBottom: '12px' }}>
-                <label className="input-label" style={{ color: '#09090b' }}>STOP 1 (+ $25)</label>
+              <div style={{ marginBottom: '14px' }}>
+                <label className="input-label" style={{ color: '#09090b' }}>INTERMEDIATE STOP (+ $25)</label>
                 <div className="phone-input-wrapper" style={{ margin: 0 }}>
-                  <Layers size={18} color="#09090b" />
+                  <Layers size={18} color="#09090b" style={{ flexShrink: 0 }} />
                   <input
                     type="text"
                     className="phone-input"
                     style={{ fontSize: '0.925rem' }}
                     value={viaStopAddress}
                     onChange={(e) => setViaStopAddress(e.target.value)}
-                    placeholder="Storage locker or secondary pickup"
+                    placeholder="Storage locker or intermediate pickup"
                   />
                 </div>
               </div>
             )}
 
-            <div>
-              <label className="input-label">DESTINATION LOCATION</label>
-              <div className="phone-input-wrapper" style={{ margin: 0 }}>
-                <MapPin size={18} color="#09090b" />
+            {/* DESTINATION INPUT WITH LIVE AUTOCOMPLETE */}
+            <div style={{ marginBottom: '6px', position: 'relative' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <label className="input-label" style={{ color: '#09090b', margin: 0 }}>DESTINATION LOCATION</label>
+                {isSearchingDropoff && <span style={{ fontSize: '0.7rem', color: '#64748b' }}>Searching maps...</span>}
+              </div>
+              <div className="phone-input-wrapper" style={{ margin: 0, position: 'relative' }}>
+                <MapPin size={18} color="#09090b" style={{ flexShrink: 0 }} />
                 <input
                   type="text"
                   className="phone-input"
                   style={{ fontSize: '0.925rem' }}
                   value={dropoffAddress}
                   onChange={(e) => setDropoffAddress(e.target.value)}
-                  placeholder="Destination address, city, zip"
+                  placeholder="e.g. 25 King's Road, London or Postcode"
                 />
               </div>
+
+              {/* Dropoff Suggestions Dropdown */}
+              {dropoffSuggestions.length > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  background: '#ffffff',
+                  borderRadius: '12px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                  border: '1px solid #e2e8f0',
+                  zIndex: 1000,
+                  marginTop: '4px',
+                  overflow: 'hidden'
+                }}>
+                  {dropoffSuggestions.map((sug, i) => (
+                    <div
+                      key={i}
+                      onClick={() => {
+                        setDropoffAddress(sug.displayName);
+                        setDropoffCoords([sug.lat, sug.lng]);
+                        setDropoffSuggestions([]);
+                      }}
+                      style={{
+                        padding: '10px 14px',
+                        borderBottom: i < dropoffSuggestions.length - 1 ? '1px solid #f1f5f9' : 'none',
+                        cursor: 'pointer',
+                        fontSize: '0.82rem',
+                        color: '#09090b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                    >
+                      <MapPin size={14} color="#09090b" />
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {sug.displayName}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
-            {/* Quick Presets */}
-            <div style={{ display: 'flex', gap: '6px', marginTop: '12px', flexWrap: 'wrap' }}>
+            {/* Quick Popular Locations & Action Chips */}
+            <div style={{ display: 'flex', gap: '6px', marginTop: '14px', flexWrap: 'wrap' }}>
               <button
-                onClick={() => setDropoffAddress('88 Commonwealth Ave, Boston, MA')}
-                style={{ background: 'var(--bg-input)', border: 'none', color: '#09090b', padding: '6px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                type="button"
+                onClick={async () => {
+                  setPickupAddress('Oxford Street, London, W1D 1BS, UK');
+                  setPickupCoords([51.5154, -0.1419]);
+                  setDropoffAddress('King’s Road, Chelsea, London, SW3 4ND, UK');
+                  setDropoffCoords([51.4875, -0.1687]);
+                }}
+                style={{ background: 'var(--bg-input)', border: '1px solid #e2e8f0', color: '#09090b', padding: '6px 10px', borderRadius: '10px', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
               >
-                <Home size={12} /> New Apt
+                🇬🇧 London Route
               </button>
 
               <button
-                onClick={() => setDropoffAddress('500 Financial Center, Boston, MA')}
-                style={{ background: 'var(--bg-input)', border: 'none', color: '#09090b', padding: '6px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                type="button"
+                onClick={async () => {
+                  setPickupAddress('Manchester City Centre, M1 1AE, UK');
+                  setPickupCoords([53.4808, -2.2426]);
+                  setDropoffAddress('MediaCityUK, Salford, M50 2EQ, UK');
+                  setDropoffCoords([53.4722, -2.2985]);
+                }}
+                style={{ background: 'var(--bg-input)', border: '1px solid #e2e8f0', color: '#09090b', padding: '6px 10px', borderRadius: '10px', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
               >
-                <Briefcase size={12} /> Office HQ
+                🇬🇧 Manchester Route
               </button>
 
               <button
+                type="button"
+                onClick={async () => {
+                  setPickupAddress('742 Evergreen Terrace, Boston, MA');
+                  setPickupCoords([42.352, -71.058]);
+                  setDropoffAddress('1200 Beacon Street, Brookline, MA');
+                  setDropoffCoords([42.343, -71.115]);
+                }}
+                style={{ background: 'var(--bg-input)', border: '1px solid #e2e8f0', color: '#09090b', padding: '6px 10px', borderRadius: '10px', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+              >
+                🇺🇸 Boston Route
+              </button>
+
+              <button
+                type="button"
                 onClick={() => {
                   setHasViaStop(!hasViaStop);
-                  if (!viaStopAddress) setViaStopAddress('14 Public Storage Way, Cambridge, MA');
+                  if (!viaStopAddress) setViaStopAddress('Self Storage Center');
                 }}
-                style={{ background: hasViaStop ? 'var(--accent-blue-subtle)' : 'var(--bg-input)', border: hasViaStop ? '1px solid var(--accent-blue-border)' : 'none', color: hasViaStop ? 'var(--accent-blue)' : '#09090b', padding: '6px 12px', borderRadius: '12px', fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                style={{ background: hasViaStop ? 'var(--accent-blue-subtle)' : 'var(--bg-input)', border: hasViaStop ? '1px solid var(--accent-blue-border)' : '1px solid #e2e8f0', color: hasViaStop ? 'var(--accent-blue)' : '#09090b', padding: '6px 10px', borderRadius: '10px', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
               >
-                <Plus size={12} /> {hasViaStop ? 'Storage Stop Added' : '+ Add Storage Stop'}
+                <Plus size={12} /> {hasViaStop ? 'Intermediate Stop' : '+ Stop'}
               </button>
             </div>
           </div>

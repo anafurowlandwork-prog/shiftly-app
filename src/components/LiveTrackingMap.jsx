@@ -1,20 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import { Phone, MessageSquare, Star, Play, Pause, ShieldCheck, Navigation } from 'lucide-react';
+import { Phone, MessageSquare, Star, Play, Pause, ShieldCheck, Navigation, MapPin, ArrowRight } from 'lucide-react';
 import DriverChatModal from './DriverChatModal';
 import DriverCallModal from './DriverCallModal';
 import MoverProfileModal from './MoverProfileModal';
 import MoveCompletionModal from './MoveCompletionModal';
-
-const ROUTE_POINTS = [
-  [42.352, -71.058], // Pickup: Downtown Boston
-  [42.353, -71.065],
-  [42.351, -71.075],
-  [42.348, -71.085],
-  [42.346, -71.095],
-  [42.345, -71.105],
-  [42.343, -71.115], // Dropoff: Brookline Beacon St
-];
+import { generateInterpolatedRoute, geocodeAddress, calculateDistanceMiles } from '../utils/geoUtils';
 
 export const MOVE_STAGES = [
   { key: 'ASSIGNED', title: 'Mover Assigned', sub: 'Marcus is preparing vehicle & equipment', progress: 15 },
@@ -34,11 +25,20 @@ export default function LiveTrackingMap({
   const mapContainerRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const truckMarkerRef = useRef(null);
-
+  const polylineRef = useRef(null);
+  const pickupMarkerRef = useRef(null);
+  const dropoffMarkerRef = useRef(null);
   
   const [pointIndex, setPointIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [currentStageIdx, setCurrentStageIdx] = useState(3);
+  const [dynamicRoute, setDynamicRoute] = useState([
+    [51.5154, -0.1419],
+    [51.5110, -0.1480],
+    [51.5050, -0.1550],
+    [51.4980, -0.1620],
+    [51.4875, -0.1687]
+  ]);
   
   // Modals
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -48,59 +48,103 @@ export default function LiveTrackingMap({
 
   const activeBooking = booking || {
     id: 'SHFT-849201',
-    pickup: '742 Evergreen Terrace, Boston, MA',
-    dropoff: '1200 Beacon Street, Brookline, MA',
+    pickup: 'Oxford Street, London, W1D 1BS',
+    dropoff: 'King’s Road, Chelsea, London, SW3 4ND',
+    pickupCoordinates: [51.5154, -0.1419],
+    dropoffCoordinates: [51.4875, -0.1687],
+    distanceMiles: 3.2,
     moveSize: '1-2 Bedroom Apt',
     vehicle: { name: 'Shiftly Flex', image: '/assets/truck.png' },
     helpers: 2,
     driver: {
       name: 'Marcus Vance',
-      rating: '4.95 ★',
+      rating: '4.98 ★',
       trips: '480 moves',
-      phone: '+1 (555) 382-9102',
-      vehiclePlate: 'MA 7XF-992',
+      phone: '+44 7378 142815',
+      vehiclePlate: 'LX24 XFR',
       photo: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=256&q=80',
     },
   };
 
+  // Resolve Real Geocoded Coordinates for the Booking
+  useEffect(() => {
+    let isMounted = true;
+    async function resolveCoordinates() {
+      let start = activeBooking.pickupCoordinates;
+      let end = activeBooking.dropoffCoordinates;
+
+      if (!start && activeBooking.pickup) {
+        start = await geocodeAddress(activeBooking.pickup);
+      }
+      if (!end && activeBooking.dropoff) {
+        end = await geocodeAddress(activeBooking.dropoff);
+      }
+
+      start = start || [51.5154, -0.1419];
+      end = end || [51.4875, -0.1687];
+
+      const points = generateInterpolatedRoute(start, end, 10);
+      if (isMounted) {
+        setDynamicRoute(points);
+        setPointIndex(0);
+      }
+    }
+
+    resolveCoordinates();
+    return () => { isMounted = false; };
+  }, [activeBooking.pickup, activeBooking.dropoff]);
+
+  // Leaflet Map Initialization & Dynamic Route Updates
   useEffect(() => {
     if (!mapContainerRef.current) return;
-    if (mapInstanceRef.current) return;
 
-    const map = L.map(mapContainerRef.current, { zoomControl: false }).setView([42.348, -71.085], 13);
+    if (!mapInstanceRef.current) {
+      const map = L.map(mapContainerRef.current, { zoomControl: false }).setView(dynamicRoute[0], 13);
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap',
+      }).addTo(map);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; OpenStreetMap',
-    }).addTo(map);
+      mapInstanceRef.current = map;
+    }
 
-    // Route Polyline with Electric Blue Accent
-    const polyline = L.polyline(ROUTE_POINTS, {
+    const map = mapInstanceRef.current;
+
+    // Remove existing layers
+    if (polylineRef.current) map.removeLayer(polylineRef.current);
+    if (pickupMarkerRef.current) map.removeLayer(pickupMarkerRef.current);
+    if (dropoffMarkerRef.current) map.removeLayer(dropoffMarkerRef.current);
+    if (truckMarkerRef.current) map.removeLayer(truckMarkerRef.current);
+
+    // Dynamic Electric Blue Polyline
+    polylineRef.current = L.polyline(dynamicRoute, {
       color: '#0052ff',
       weight: 5,
       opacity: 0.95,
       lineCap: 'round',
     }).addTo(map);
 
-    map.fitBounds(polyline.getBounds(), { padding: [35, 35] });
+    try {
+      map.fitBounds(polylineRef.current.getBounds(), { padding: [40, 40] });
+    } catch (e) {}
 
-    // Pickup Icon
+    // Pickup Marker
     const pickupIcon = L.divIcon({
       className: 'custom-pin',
-      html: `<div style="background: #09090b; color: #ffffff; font-weight: 800; font-size: 10px; padding: 5px 9px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); letter-spacing: 0.02em;">PICKUP</div>`,
+      html: `<div style="background: #09090b; color: #ffffff; font-weight: 800; font-size: 10px; padding: 5px 9px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); letter-spacing: 0.02em; white-space: nowrap;">PICKUP</div>`,
       iconSize: [60, 24],
     });
-    L.marker(ROUTE_POINTS[0], { icon: pickupIcon }).addTo(map);
+    pickupMarkerRef.current = L.marker(dynamicRoute[0], { icon: pickupIcon }).addTo(map);
 
-    // Dropoff Icon
+    // Dropoff Marker
     const dropoffIcon = L.divIcon({
       className: 'custom-pin',
-      html: `<div style="background: #0052ff; color: #ffffff; font-weight: 800; font-size: 10px; padding: 5px 9px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,82,255,0.3); letter-spacing: 0.02em;">DESTINATION</div>`,
+      html: `<div style="background: #0052ff; color: #ffffff; font-weight: 800; font-size: 10px; padding: 5px 9px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,82,255,0.3); letter-spacing: 0.02em; white-space: nowrap;">DESTINATION</div>`,
       iconSize: [85, 24],
     });
-    L.marker(ROUTE_POINTS[ROUTE_POINTS.length - 1], { icon: dropoffIcon }).addTo(map);
+    dropoffMarkerRef.current = L.marker(dynamicRoute[dynamicRoute.length - 1], { icon: dropoffIcon }).addTo(map);
 
-    // Moving Truck Marker with Electric Blue Beacon Pulse
+    // Moving Truck Marker
     const truckIcon = L.divIcon({
       className: 'truck-marker-wrapper',
       html: `
@@ -112,33 +156,29 @@ export default function LiveTrackingMap({
       iconAnchor: [19, 19],
     });
 
-    const truckMarker = L.marker(ROUTE_POINTS[0], { icon: truckIcon }).addTo(map);
-    truckMarkerRef.current = truckMarker;
-    mapInstanceRef.current = map;
+    truckMarkerRef.current = L.marker(dynamicRoute[0], { icon: truckIcon }).addTo(map);
 
     return () => {
-      if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      }
+      // Keep map instance across renders
     };
-  }, []);
+  }, [dynamicRoute]);
 
+  // Truck Animation Loop along Dynamic Route Points
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPlaying || !dynamicRoute || dynamicRoute.length === 0) return;
 
     const interval = setInterval(() => {
       setPointIndex((prev) => {
-        const nextIdx = (prev + 1) % ROUTE_POINTS.length;
-        if (truckMarkerRef.current) {
-          truckMarkerRef.current.setLatLng(ROUTE_POINTS[nextIdx]);
+        const nextIdx = (prev + 1) % dynamicRoute.length;
+        if (truckMarkerRef.current && dynamicRoute[nextIdx]) {
+          truckMarkerRef.current.setLatLng(dynamicRoute[nextIdx]);
         }
         return nextIdx;
       });
-    }, 2400);
+    }, 2200);
 
     return () => clearInterval(interval);
-  }, [isPlaying]);
+  }, [isPlaying, dynamicRoute]);
 
   const currentStage = MOVE_STAGES[currentStageIdx];
 
@@ -236,6 +276,28 @@ export default function LiveTrackingMap({
               #{activeBooking.id}
             </span>
           )}
+        </div>
+
+        {/* Real Route Breakdown Card */}
+        <div style={{ background: '#f8fafc', borderRadius: '14px', padding: '12px 14px', marginBottom: '12px', border: '1px solid #e2e8f0' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '8px' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#0052ff', marginTop: '5px', flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>PICKUP</span>
+              <p style={{ fontSize: '0.82rem', fontWeight: 700, color: '#09090b', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {activeBooking.pickup}
+              </p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
+            <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#09090b', marginTop: '5px', flexShrink: 0 }} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: '0.68rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>DESTINATION</span>
+              <p style={{ fontSize: '0.82rem', fontWeight: 700, color: '#09090b', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {activeBooking.dropoff}
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Progress Line */}
