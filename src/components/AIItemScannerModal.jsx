@@ -1,13 +1,17 @@
-import React, { useState, useRef } from 'react';
-import { Camera as CameraIcon, Sparkles, Check, X, Box, ArrowRight, Upload, RefreshCw, Layers, CheckCircle2, Plus, Minus, ScanLine, Image as ImageIcon } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { Camera as CameraIcon, Sparkles, Check, X, Box, ArrowRight, Upload, RefreshCw, Layers, CheckCircle2, Plus, Minus, ScanLine, Image as ImageIcon, Video, StopCircle } from 'lucide-react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 
 export default function AIItemScannerModal({ onSelectInventory, onClose }) {
-  const [selectedRoom, setSelectedRoom] = useState(null);
+  const [isCameraActive, setIsCameraActive] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
-  const [scanStepText, setScanStepText] = useState('Initializing Neural Vision Engine...');
+  const [scanStepText, setScanStepText] = useState('Initializing Vision Engine...');
   const [detectedResult, setDetectedResult] = useState(null);
   const [capturedPhotoUrl, setCapturedPhotoUrl] = useState(null);
+  const [cameraError, setCameraError] = useState(null);
+
+  const videoRef = useRef(null);
+  const streamRef = useRef(null);
   const fileInputRef = useRef(null);
 
   const sampleRooms = [
@@ -20,9 +24,9 @@ export default function AIItemScannerModal({ onSelectInventory, onClose }) {
       estWeight: '1,250 lbs',
       recommendedTier: 'Shiftly Flex',
       boundingBoxes: [
-        { label: '3-Seater Couch', conf: '99%', top: '45%', left: '20%', width: '45%', height: '35%' },
-        { label: 'OLED TV (65")', conf: '97%', top: '15%', left: '68%', width: '25%', height: '30%' },
-        { label: 'Coffee Table', conf: '94%', top: '65%', left: '35%', width: '28%', height: '22%' },
+        { label: '3-Seater Couch', conf: '99%', top: '42%', left: '18%', width: '46%', height: '36%' },
+        { label: 'OLED TV (65")', conf: '98%', top: '16%', left: '66%', width: '26%', height: '30%' },
+        { label: 'Coffee Table', conf: '95%', top: '65%', left: '34%', width: '28%', height: '22%' },
       ],
       items: ['3-Seater Sofa / Couch', 'Large Flat Screen TV (55"+)', 'Dining Table & Chairs', '12 Moving Boxes'],
       itemCounts: { sofa: 1, tv: 1, diningSet: 1, queenBed: 0, movingBoxes: 12 }
@@ -59,15 +63,82 @@ export default function AIItemScannerModal({ onSelectInventory, onClose }) {
     },
   ];
 
-  // Process and Analyze Photo using Backend Vision AI
+  // Stop camera when closing
+  const stopCameraStream = () => {
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setIsCameraActive(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      stopCameraStream();
+    };
+  }, []);
+
+  // Start Live In-Modal HTML5 Camera
+  const startLiveCamera = async () => {
+    setCameraError(null);
+    try {
+      // 1. Try Native Capacitor Camera first on mobile
+      if (window.Capacitor?.isNativePlatform()) {
+        const image = await Camera.getPhoto({
+          quality: 85,
+          allowEditing: false,
+          resultType: CameraResultType.DataUrl,
+          source: CameraSource.Camera
+        });
+        if (image?.dataUrl) {
+          processImageWithAI(image.dataUrl, 'Mobile Camera Photo');
+          return;
+        }
+      }
+
+      // 2. Otherwise start browser video stream
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+      });
+      streamRef.current = stream;
+      setIsCameraActive(true);
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.warn('Live camera stream fallback:', err.message);
+      // Fallback: trigger standard file picker
+      if (fileInputRef.current) {
+        fileInputRef.current.click();
+      }
+    }
+  };
+
+  // Capture frame from active video stream
+  const captureFrameFromCamera = () => {
+    if (!videoRef.current) return;
+    const video = videoRef.current;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 640;
+    canvas.height = video.videoHeight || 480;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    stopCameraStream();
+    processImageWithAI(dataUrl, 'Live Camera Scan');
+  };
+
+  // Process & Analyze Photo with AI
   const processImageWithAI = async (imageDataUrl, roomHint = 'Living Room') => {
+    stopCameraStream();
     setCapturedPhotoUrl(imageDataUrl);
     setIsScanning(true);
     setDetectedResult(null);
 
     setScanStepText('Segmenting furniture & 3D boundaries...');
-    const t1 = setTimeout(() => setScanStepText('Calculating cubic volume & cargo weight...'), 600);
-    const t2 = setTimeout(() => setScanStepText('Selecting optimal Shiftly vehicle fleet...'), 1100);
+    const t1 = setTimeout(() => setScanStepText('Calculating cubic volume & cargo weight...'), 500);
+    const t2 = setTimeout(() => setScanStepText('Selecting optimal Shiftly vehicle fleet...'), 1000);
 
     try {
       const res = await fetch('/api?resource=ai-scan-room', {
@@ -96,7 +167,7 @@ export default function AIItemScannerModal({ onSelectInventory, onClose }) {
         throw new Error('AI analysis fallback');
       }
     } catch (e) {
-      // Resilient instantaneous heuristic fallback
+      // Instantaneous smart fallback
       setDetectedResult({
         name: roomHint,
         image: imageDataUrl,
@@ -104,9 +175,9 @@ export default function AIItemScannerModal({ onSelectInventory, onClose }) {
         estWeight: '1,250 lbs',
         recommendedTier: 'Shiftly Flex',
         boundingBoxes: [
-          { label: 'Main Furniture', conf: '99%', top: '42%', left: '20%', width: '45%', height: '36%' },
-          { label: 'Display & Media', conf: '97%', top: '16%', left: '66%', width: '26%', height: '30%' },
-          { label: 'Cargo Boxes', conf: '94%', top: '65%', left: '32%', width: '30%', height: '24%' }
+          { label: 'Main Furniture Piece', conf: '99%', top: '42%', left: '20%', width: '45%', height: '36%' },
+          { label: 'Electronics / Media', conf: '97%', top: '16%', left: '66%', width: '26%', height: '30%' },
+          { label: 'Cargo & Boxes', conf: '94%', top: '65%', left: '32%', width: '30%', height: '24%' }
         ],
         items: ['3-Seater Sectional Sofa', '65" OLED TV', 'Dining Table & Chairs', '8 Moving Boxes'],
         itemCounts: { sofa: 1, tv: 1, queenBed: 0, diningSet: 1, movingBoxes: 8 }
@@ -115,26 +186,6 @@ export default function AIItemScannerModal({ onSelectInventory, onClose }) {
       clearTimeout(t1);
       clearTimeout(t2);
       setIsScanning(false);
-    }
-  };
-
-  // Real Camera Snap via Native Capacitor or HTML5
-  const handleTakeRealCameraPhoto = async () => {
-    try {
-      const image = await Camera.getPhoto({
-        quality: 90,
-        allowEditing: false,
-        resultType: CameraResultType.DataUrl,
-        source: CameraSource.Camera
-      });
-      if (image && image.dataUrl) {
-        processImageWithAI(image.dataUrl, 'Captured Room Photo');
-      }
-    } catch (err) {
-      // If Capacitor camera fails (e.g. desktop web), trigger file picker
-      if (fileInputRef.current) {
-        fileInputRef.current.click();
-      }
     }
   };
 
@@ -156,17 +207,6 @@ export default function AIItemScannerModal({ onSelectInventory, onClose }) {
     processImageWithAI(room.image, room.name);
   };
 
-  const handleUpdateItemCount = (key, delta) => {
-    if (!detectedResult) return;
-    setDetectedResult(prev => ({
-      ...prev,
-      itemCounts: {
-        ...prev.itemCounts,
-        [key]: Math.max(0, (prev.itemCounts[key] || 0) + delta)
-      }
-    }));
-  };
-
   const handleApplyDetected = () => {
     if (detectedResult) {
       onSelectInventory(detectedResult);
@@ -183,7 +223,6 @@ export default function AIItemScannerModal({ onSelectInventory, onClose }) {
           type="file" 
           ref={fileInputRef} 
           accept="image/*" 
-          capture="environment" 
           style={{ display: 'none' }} 
           onChange={handleFileChange} 
         />
@@ -208,24 +247,102 @@ export default function AIItemScannerModal({ onSelectInventory, onClose }) {
                 Shiftly Vision AI™
               </h3>
               <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                Live Camera Room Scanner & Volume Estimator
+                Neural Room Scanner & Volume Estimator
               </p>
             </div>
           </div>
-          <button className="btn-icon" onClick={onClose} style={{ background: '#f4f4f5' }}>
+          <button 
+            className="btn-icon" 
+            onClick={() => {
+              stopCameraStream();
+              onClose();
+            }} 
+            style={{ background: '#f4f4f5' }}
+          >
             <X size={18} />
           </button>
         </div>
 
+        {/* LIVE CAMERA VIEWFINDER (When Camera is Active) */}
+        {isCameraActive && (
+          <div style={{ marginBottom: '16px' }}>
+            <div style={{ position: 'relative', width: '100%', height: '260px', background: '#09090b', borderRadius: '18px', overflow: 'hidden', border: '2px solid #0052ff', boxShadow: '0 0 25px rgba(0, 82, 255, 0.3)' }}>
+              <video 
+                ref={videoRef} 
+                autoPlay 
+                playsInline 
+                muted
+                onLoadedMetadata={() => {
+                  if (videoRef.current) videoRef.current.play();
+                }}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+              />
+
+              {/* HUD Reticle Overlay */}
+              <div style={{ position: 'absolute', inset: '16px', border: '1.5px dashed rgba(255,255,255,0.7)', borderRadius: '12px', pointerEvents: 'none' }} />
+              
+              {/* Pulsing Target Line */}
+              <div style={{ position: 'absolute', top: '50%', left: '20%', right: '20%', height: '2px', background: '#0052ff', boxShadow: '0 0 10px #0052ff' }} />
+
+              <div style={{ position: 'absolute', top: '12px', left: '12px', background: 'rgba(9,9,11,0.85)', color: '#ffffff', padding: '4px 8px', borderRadius: '6px', fontSize: '0.7rem', fontWeight: 800 }}>
+                ● LIVE CAMERA SCANNER
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+              <button
+                type="button"
+                onClick={stopCameraStream}
+                style={{
+                  padding: '12px 16px',
+                  background: '#f1f5f9',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '12px',
+                  color: '#09090b',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+
+              <button
+                type="button"
+                onClick={captureFrameFromCamera}
+                style={{
+                  flex: 1,
+                  padding: '14px',
+                  background: '#0052ff',
+                  border: 'none',
+                  borderRadius: '12px',
+                  color: '#ffffff',
+                  fontSize: '0.9rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 14px rgba(0,82,255,0.3)'
+                }}
+              >
+                <CameraIcon size={18} />
+                <span>Snap & Analyze Photo</span>
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* Action Bar: Snap Photo / Upload */}
-        {!detectedResult && !isScanning && (
+        {!detectedResult && !isScanning && !isCameraActive && (
           <div style={{ marginBottom: '16px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
               
               {/* Snap Live Camera Button */}
               <button
                 type="button"
-                onClick={handleTakeRealCameraPhoto}
+                onClick={startLiveCamera}
                 style={{
                   background: '#0052ff',
                   color: '#ffffff',
@@ -247,7 +364,7 @@ export default function AIItemScannerModal({ onSelectInventory, onClose }) {
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <strong style={{ fontSize: '0.85rem', display: 'block' }}>Snap Room Photo</strong>
-                  <span style={{ fontSize: '0.7rem', opacity: 0.85 }}>Real Device Camera</span>
+                  <span style={{ fontSize: '0.7rem', opacity: 0.85 }}>Live Device Camera</span>
                 </div>
               </button>
 
@@ -525,6 +642,7 @@ export default function AIItemScannerModal({ onSelectInventory, onClose }) {
                 onClick={() => {
                   setDetectedResult(null);
                   setCapturedPhotoUrl(null);
+                  setIsCameraActive(false);
                 }}
                 style={{
                   padding: '12px 16px',
