@@ -7,6 +7,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Shiftly Android APK
@@ -14,8 +17,10 @@ jobs:
     steps:
       - name: 1. Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      - name: 2. Set up Node.js 22 (LTS)
+      - name: 2. Set up Node.js 22
         uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -26,26 +31,35 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: 4. Install NPM Dependencies
-        run: npm install
-
-      - name: 5. Build Web Application
-        run: npm run build
-
-      - name: 6. Sync Capacitor Android
-        run: npx cap sync android
-
-      - name: 7. Make gradlew executable
-        run: chmod +x android/gradlew
-
-      - name: 8. Build Android Debug APK
+      - name: 4. Build Application & Compile APK
         run: |
-          cd android
-          ./gradlew assembleDebug --no-daemon
+          (
+            echo "=== Step 1: NPM Install ==="
+            npm install
+            echo "=== Step 2: Vite Build ==="
+            npm run build
+            echo "=== Step 3: Capacitor Sync ==="
+            npx cap sync android
+            echo "=== Step 4: Gradle APK Build ==="
+            cd android
+            chmod +x gradlew
+            ./gradlew assembleDebug --no-daemon --stacktrace
+          ) 2>&1 | tee runner.log
 
-      - name: 9. Upload APK Artifact
+      - name: 5. Upload APK on Success
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: shiftly-android-apk
           path: android/app/build/outputs/apk/debug/*.apk
           retention-days: 30
+
+      - name: 6. Save Log to Diagnostic Branch
+        if: always()
+        run: |
+          git config --global user.name "Shiftly CI"
+          git config --global user.email "ci@shiftly.app"
+          git checkout -B ci-logs
+          git add -f runner.log
+          git commit -m "ci: capture runner execution log [skip ci]" || true
+          git push -f origin ci-logs || true
