@@ -7,6 +7,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     name: Build Shiftly Android APK
@@ -14,6 +17,8 @@ jobs:
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up Node.js 20
         uses: actions/setup-node@v4
@@ -28,17 +33,19 @@ jobs:
 
       - name: Execute Full Build & Compile APK
         run: |
-          set -e
-          echo "=== 1. Installing NPM Dependencies ==="
-          npm install
-          echo "=== 2. Building Production Web App ==="
-          npm run build
-          echo "=== 3. Synchronizing Capacitor Android ==="
-          npx cap sync android
-          echo "=== 4. Compiling Android APK with Gradle ==="
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
+          (
+            set -e
+            echo "=== 1. Installing NPM Dependencies ==="
+            npm install
+            echo "=== 2. Building Production Web App ==="
+            npm run build
+            echo "=== 3. Synchronizing Capacitor Android ==="
+            npx cap sync android
+            echo "=== 4. Compiling Android APK with Gradle ==="
+            cd android
+            chmod +x gradlew
+            ./gradlew assembleDebug --no-daemon
+          ) 2>&1 | tee runner.log
 
       - name: Upload APK on Success
         if: success()
@@ -47,3 +54,13 @@ jobs:
           name: shiftly-android-apk
           path: android/app/build/outputs/apk/debug/*.apk
           retention-days: 30
+
+      - name: Save Log to Diagnostic Branch
+        if: always()
+        run: |
+          git config --global user.name "Shiftly CI"
+          git config --global user.email "ci@shiftly.app"
+          git checkout -B ci-logs
+          git add -f runner.log
+          git commit -m "ci: capture runner execution log [skip ci]" || true
+          git push -f origin ci-logs || true
