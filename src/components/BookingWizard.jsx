@@ -196,13 +196,36 @@ export default function BookingWizard({ onBookingConfirmed }) {
       {/* Step 1: Pickup, Multi-Stop & Destination */}
       {step === 1 && (
         <div>
-          <div style={{ marginBottom: '18px' }}>
-            <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.55rem', color: '#09090b', fontWeight: 800, letterSpacing: '-0.03em' }}>
-              Where are you moving?
-            </h2>
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Enter pickup, destination & optional intermediate stops
-            </p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
+            <div>
+              <h2 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.55rem', color: '#09090b', fontWeight: 800, letterSpacing: '-0.03em' }}>
+                Where are you moving?
+              </h2>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                Enter pickup, destination & optional intermediate stops
+              </p>
+            </div>
+
+            <button
+              onClick={() => setIsAIScannerOpen(true)}
+              style={{
+                background: '#09090b',
+                color: '#ffffff',
+                border: 'none',
+                padding: '8px 12px',
+                borderRadius: '12px',
+                fontSize: '0.78rem',
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                flexShrink: 0
+              }}
+              title="Snap Room Photo with AI Scanner"
+            >
+              <Camera size={14} color="#0052ff" /> AI Scan
+            </button>
           </div>
 
           <div style={{ background: '#ffffff', borderRadius: '20px', border: '1px solid var(--border-subtle)', padding: '16px', marginBottom: '14px', boxShadow: 'var(--shadow-sm)' }}>

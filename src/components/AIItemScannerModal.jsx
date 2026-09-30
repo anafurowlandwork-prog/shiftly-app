@@ -2,6 +2,55 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Camera as CameraIcon, Sparkles, Check, X, Box, ArrowRight, Upload, RefreshCw, Layers, CheckCircle2, Plus, Minus, ScanLine, Image as ImageIcon, Video, StopCircle } from 'lucide-react';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 
+const SAMPLE_ROOMS = [
+  {
+    id: 'living',
+    name: 'Living Room',
+    icon: '🛋️',
+    image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=600&q=80',
+    estCuFt: 340,
+    estWeight: '1,250 lbs',
+    recommendedTier: 'Shiftly Flex',
+    boundingBoxes: [
+      { label: '3-Seater Couch', conf: '99%', top: '42%', left: '18%', width: '46%', height: '36%' },
+      { label: 'OLED TV (65")', conf: '98%', top: '16%', left: '66%', width: '26%', height: '30%' },
+      { label: 'Coffee Table', conf: '95%', top: '65%', left: '34%', width: '28%', height: '22%' },
+    ],
+    items: ['3-Seater Sofa / Couch', 'Large Flat Screen TV (55"+)', 'Dining Table & Chairs', '12 Moving Boxes'],
+    itemCounts: { sofa: 1, tv: 1, diningSet: 1, queenBed: 0, movingBoxes: 12 }
+  },
+  {
+    id: 'bedroom',
+    name: 'Master Bedroom',
+    icon: '🛏️',
+    image: 'https://images.unsplash.com/photo-1616594039964-ae9021a400a0?auto=format&fit=crop&w=600&q=80',
+    estCuFt: 280,
+    estWeight: '980 lbs',
+    recommendedTier: 'Shiftly Flex',
+    boundingBoxes: [
+      { label: 'Queen Bed & Frame', conf: '98%', top: '35%', left: '25%', width: '50%', height: '45%' },
+      { label: 'Dresser / Nightstand', conf: '95%', top: '50%', left: '5%', width: '20%', height: '35%' },
+    ],
+    items: ['Queen / King Mattress & Frame', 'Dresser & Mirror', '2 Nightstands', '8 Moving Boxes'],
+    itemCounts: { sofa: 0, tv: 1, diningSet: 0, queenBed: 1, movingBoxes: 8 }
+  },
+  {
+    id: 'office',
+    name: 'Home Office & Studio',
+    icon: '🖥️',
+    image: 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=600&q=80',
+    estCuFt: 160,
+    estWeight: '550 lbs',
+    recommendedTier: 'Shiftly Mini',
+    boundingBoxes: [
+      { label: 'Ergonomic Desk', conf: '98%', top: '40%', left: '30%', width: '40%', height: '35%' },
+      { label: 'Monitors & PC', conf: '96%', top: '25%', left: '42%', width: '22%', height: '20%' },
+    ],
+    items: ['Standing Desk', 'Ergonomic Chair', 'Bookcase', '6 Moving Boxes'],
+    itemCounts: { sofa: 0, tv: 1, diningSet: 0, queenBed: 0, movingBoxes: 6 }
+  },
+];
+
 export default function AIItemScannerModal({ onSelectInventory, onClose }) {
   const [isCameraActive, setIsCameraActive] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -13,55 +62,7 @@ export default function AIItemScannerModal({ onSelectInventory, onClose }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const fileInputRef = useRef(null);
-
-  const sampleRooms = [
-    {
-      id: 'living',
-      name: 'Living Room',
-      icon: '🛋️',
-      image: 'https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=600&q=80',
-      estCuFt: 340,
-      estWeight: '1,250 lbs',
-      recommendedTier: 'Shiftly Flex',
-      boundingBoxes: [
-        { label: '3-Seater Couch', conf: '99%', top: '42%', left: '18%', width: '46%', height: '36%' },
-        { label: 'OLED TV (65")', conf: '98%', top: '16%', left: '66%', width: '26%', height: '30%' },
-        { label: 'Coffee Table', conf: '95%', top: '65%', left: '34%', width: '28%', height: '22%' },
-      ],
-      items: ['3-Seater Sofa / Couch', 'Large Flat Screen TV (55"+)', 'Dining Table & Chairs', '12 Moving Boxes'],
-      itemCounts: { sofa: 1, tv: 1, diningSet: 1, queenBed: 0, movingBoxes: 12 }
-    },
-    {
-      id: 'bedroom',
-      name: 'Master Bedroom',
-      icon: '🛏️',
-      image: 'https://images.unsplash.com/photo-1616594039964-ae9021a400a0?auto=format&fit=crop&w=600&q=80',
-      estCuFt: 280,
-      estWeight: '980 lbs',
-      recommendedTier: 'Shiftly Flex',
-      boundingBoxes: [
-        { label: 'Queen Bed & Frame', conf: '98%', top: '35%', left: '25%', width: '50%', height: '45%' },
-        { label: 'Dresser / Nightstand', conf: '95%', top: '50%', left: '5%', width: '20%', height: '35%' },
-      ],
-      items: ['Queen / King Mattress & Frame', 'Dresser & Mirror', '2 Nightstands', '8 Moving Boxes'],
-      itemCounts: { sofa: 0, tv: 1, diningSet: 0, queenBed: 1, movingBoxes: 8 }
-    },
-    {
-      id: 'office',
-      name: 'Home Office & Studio',
-      icon: '🖥️',
-      image: 'https://images.unsplash.com/photo-1524758631624-e2822e304c36?auto=format&fit=crop&w=600&q=80',
-      estCuFt: 160,
-      estWeight: '550 lbs',
-      recommendedTier: 'Shiftly Mini',
-      boundingBoxes: [
-        { label: 'Ergonomic Desk', conf: '98%', top: '40%', left: '30%', width: '40%', height: '35%' },
-        { label: 'Monitors & PC', conf: '96%', top: '25%', left: '42%', width: '22%', height: '20%' },
-      ],
-      items: ['Standing Desk', 'Ergonomic Chair', 'Bookcase', '6 Moving Boxes'],
-      itemCounts: { sofa: 0, tv: 1, diningSet: 0, queenBed: 0, movingBoxes: 6 }
-    },
-  ];
+  const cameraFileInputRef = useRef(null);
 
   // Stop camera when closing
   const stopCameraStream = () => {
@@ -77,6 +78,15 @@ export default function AIItemScannerModal({ onSelectInventory, onClose }) {
       stopCameraStream();
     };
   }, []);
+
+  // Trigger Native / Mobile Camera Directly
+  const triggerMobileCamera = () => {
+    if (cameraFileInputRef.current) {
+      cameraFileInputRef.current.click();
+    } else if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
 
   // Start Live In-Modal HTML5 Camera
   const startLiveCamera = async () => {
@@ -106,11 +116,8 @@ export default function AIItemScannerModal({ onSelectInventory, onClose }) {
         videoRef.current.srcObject = stream;
       }
     } catch (err) {
-      console.warn('Live camera stream fallback:', err.message);
-      // Fallback: trigger standard file picker
-      if (fileInputRef.current) {
-        fileInputRef.current.click();
-      }
+      console.warn('Live camera stream fallback to direct photo capture:', err.message);
+      triggerMobileCamera();
     }
   };
 
@@ -218,11 +225,20 @@ export default function AIItemScannerModal({ onSelectInventory, onClose }) {
     <div className="modal-backdrop">
       <div className="modal-sheet" style={{ maxHeight: '92vh', overflowY: 'auto' }}>
         
-        {/* Hidden HTML5 File / Camera Input */}
+        {/* Hidden HTML5 File / Camera Inputs */}
         <input 
           type="file" 
           ref={fileInputRef} 
           accept="image/*" 
+          style={{ display: 'none' }} 
+          onChange={handleFileChange} 
+        />
+
+        <input 
+          type="file" 
+          ref={cameraFileInputRef} 
+          accept="image/*" 
+          capture="environment"
           style={{ display: 'none' }} 
           onChange={handleFileChange} 
         />
@@ -342,7 +358,14 @@ export default function AIItemScannerModal({ onSelectInventory, onClose }) {
               {/* Snap Live Camera Button */}
               <button
                 type="button"
-                onClick={startLiveCamera}
+                onClick={() => {
+                  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || '');
+                  if (isMobile) {
+                    triggerMobileCamera();
+                  } else {
+                    startLiveCamera();
+                  }
+                }}
                 style={{
                   background: '#0052ff',
                   color: '#ffffff',
@@ -364,7 +387,7 @@ export default function AIItemScannerModal({ onSelectInventory, onClose }) {
                 </div>
                 <div style={{ textAlign: 'center' }}>
                   <strong style={{ fontSize: '0.85rem', display: 'block' }}>Snap Room Photo</strong>
-                  <span style={{ fontSize: '0.7rem', opacity: 0.85 }}>Live Device Camera</span>
+                  <span style={{ fontSize: '0.7rem', opacity: 0.85 }}>Take Live Photo</span>
                 </div>
               </button>
 
@@ -407,7 +430,7 @@ export default function AIItemScannerModal({ onSelectInventory, onClose }) {
 
             {/* Sample Rooms Grid */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {sampleRooms.map((room) => (
+              {SAMPLE_ROOMS.map((room) => (
                 <div
                   key={room.id}
                   onClick={() => handleScanPresetRoom(room)}
