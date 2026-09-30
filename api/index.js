@@ -247,6 +247,8 @@ export default async function handler(req, res) {
       driverWallet.availableBalance = 0;
       return res.status(200).json({ success: true, payout: payoutRecord, wallet: driverWallet });
     }
+  }
+
   // --- SEND REALTIME OTP CODE (SMS or Email) ---
   if (targetResource === 'send-otp') {
     const { recipient, method = 'phone' } = req.body || req.query || {};
