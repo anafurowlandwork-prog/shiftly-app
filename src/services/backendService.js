@@ -7,7 +7,12 @@ import {
   getFirestore, collection, doc, setDoc, getDoc, 
   updateDoc, onSnapshot, query, where, orderBy, addDoc, serverTimestamp 
 } from 'firebase/firestore';
-import { getAuth, signInAnonymously } from 'firebase/auth';
+import { 
+  getAuth, 
+  signInAnonymously,
+  RecaptchaVerifier,
+  signInWithPhoneNumber
+} from 'firebase/auth';
 
 // Standard Firebase config - reads from Vite environment or uses demo project
 const firebaseConfig = {
@@ -177,13 +182,89 @@ export async function broadcastDriverLocation(coords) {
   }
 }
 
-// In-memory OTP code fallback
+// In-memory OTP code & Firebase Phone Auth session fallback
 let localGeneratedOtp = null;
+let confirmationResultRef = null;
+let recaptchaVerifierRef = null;
+
+/**
+ * Initializes invisible reCAPTCHA for Google Firebase Phone Auth
+ */
+export function initRecaptchaVerifier(containerId = 'recaptcha-container') {
+  if (!auth) return null;
+  try {
+    if (recaptchaVerifierRef) {
+      try { recaptchaVerifierRef.clear(); } catch (e) {}
+      recaptchaVerifierRef = null;
+    }
+    const container = typeof document !== 'undefined' ? document.getElementById(containerId) : null;
+    if (!container) return null;
+
+    recaptchaVerifierRef = new RecaptchaVerifier(auth, containerId, {
+      size: 'invisible',
+      callback: () => {
+        console.log('[Firebase Auth] Invisible reCAPTCHA passed');
+      },
+      'expired-callback': () => {
+        console.warn('[Firebase Auth] reCAPTCHA expired, auto-refreshing');
+      }
+    });
+    return recaptchaVerifierRef;
+  } catch (err) {
+    console.warn('[Firebase Auth] Recaptcha setup notice:', err.message);
+    return null;
+  }
+}
+
+/**
+ * Dispatches real SMS verification via Google Firebase Phone Auth
+ */
+export async function sendFirebasePhoneOtp(formattedPhoneNumber, containerId = 'recaptcha-container') {
+  if (!auth) {
+    throw new Error('Firebase Auth is not initialized');
+  }
+  const appVerifier = initRecaptchaVerifier(containerId);
+  if (!appVerifier) {
+    throw new Error('Could not initialize reCAPTCHA container');
+  }
+  const confirmationResult = await signInWithPhoneNumber(auth, formattedPhoneNumber, appVerifier);
+  confirmationResultRef = confirmationResult;
+  return { success: true, confirmationResult };
+}
+
+/**
+ * Confirms SMS code received via Google Firebase Phone Auth
+ */
+export async function verifyFirebasePhoneOtp(code) {
+  if (confirmationResultRef) {
+    const result = await confirmationResultRef.confirm(code);
+    return {
+      success: true,
+      user: result.user
+    };
+  }
+  throw new Error('No active Firebase phone verification session found.');
+}
 
 /**
  * Dispatches real 6-digit OTP code to user's phone or email
  */
-export async function sendRealOtp({ recipient, method = 'phone' }) {
+export async function sendRealOtp({ recipient, method = 'phone', containerId = 'recaptcha-container' }) {
+  // 1. Try Firebase Phone Auth if method is phone and recipient is in international E.164 format
+  if (method === 'phone' && isCloudActive && auth && recipient.startsWith('+')) {
+    try {
+      const fbResult = await sendFirebasePhoneOtp(recipient, containerId);
+      return {
+        success: true,
+        method: 'firebase_phone',
+        message: `Real SMS code dispatched to ${recipient}`
+      };
+    } catch (fbErr) {
+      console.warn('[Firebase Phone Auth] Fallback to unified backend:', fbErr.message);
+    }
+  }
+
+  // 2. Dispatches via Unified Master Backend (Twilio SMS / Resend Email / Resilient Engine)
   try {
     const res = await fetch('/api?resource=send-otp', {
       method: 'POST',
@@ -211,6 +292,17 @@ export async function sendRealOtp({ recipient, method = 'phone' }) {
  * Verifies 6-digit OTP code entered by the user
  */
 export async function verifyRealOtp({ recipient, code }) {
+  // 1. If Firebase Phone Auth session exists, verify with Firebase first
+  if (confirmationResultRef) {
+    try {
+      const fbVerify = await verifyFirebasePhoneOtp(code);
+      if (fbVerify.success) return fbVerify;
+    } catch (fbErr) {
+      console.warn('[Firebase Verify] Note:', fbErr.message);
+    }
+  }
+
+  // 2. Verify with Unified Master Backend
   try {
     const res = await fetch('/api?resource=verify-otp', {
       method: 'POST',

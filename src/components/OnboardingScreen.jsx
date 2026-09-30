@@ -248,6 +248,9 @@ export default function OnboardingScreen({ onCompleteAuth }) {
   return (
     <div className="onboarding-screen" style={{ width: '100%', height: '100%', boxSizing: 'border-box', overflowY: 'auto', position: 'relative' }}>
       
+      {/* Invisible reCAPTCHA Anchor for Google Firebase Phone Auth */}
+      <div id="recaptcha-container"></div>
+
       {/* Dynamic Push Notification Banner */}
       {emailNotificationToast && (
         <div 
