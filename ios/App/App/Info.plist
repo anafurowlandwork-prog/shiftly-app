@@ -72,6 +72,8 @@
 	<string>Shiftly needs photo library access to upload moving item photos.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Shiftly needs your location to track moving truck arrivals and calculate accurate route telemetry.</string>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
 </dict>
 </plist>
 
