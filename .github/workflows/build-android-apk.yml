@@ -7,60 +7,45 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   build:
     name: Build Shiftly Android APK
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: 1. Checkout Repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Set up Node.js 20
+      - name: 2. Set up Node.js 22 (LTS)
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
 
-      - name: Set up Java JDK 21
+      - name: 3. Set up Java JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: Execute Full Build & Compile APK
-        run: |
-          (
-            set -e
-            echo "=== 1. Installing NPM Dependencies ==="
-            npm install
-            echo "=== 2. Building Production Web App ==="
-            npm run build
-            echo "=== 3. Synchronizing Capacitor Android ==="
-            npx cap sync android
-            echo "=== 4. Compiling Android APK with Gradle ==="
-            cd android
-            chmod +x gradlew
-            ./gradlew assembleDebug --no-daemon
-          ) 2>&1 | tee runner.log
+      - name: 4. Install NPM Dependencies
+        run: npm install
 
-      - name: Upload APK on Success
-        if: success()
+      - name: 5. Build Web Application
+        run: npm run build
+
+      - name: 6. Sync Capacitor Android
+        run: npx cap sync android
+
+      - name: 7. Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: 8. Build Android Debug APK
+        run: |
+          cd android
+          ./gradlew assembleDebug --no-daemon
+
+      - name: 9. Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: shiftly-android-apk
           path: android/app/build/outputs/apk/debug/*.apk
           retention-days: 30
-
-      - name: Save Log to Diagnostic Branch
-        if: always()
-        run: |
-          git config --global user.name "Shiftly CI"
-          git config --global user.email "ci@shiftly.app"
-          git checkout -B ci-logs
-          git add -f runner.log
-          git commit -m "ci: capture runner execution log [skip ci]" || true
-          git push -f origin ci-logs || true
