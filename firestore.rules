@@ -1,0 +1,33 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // User Profiles & Preferences
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Customer Move Bookings (Customers & Movers have read/write access)
+    match /bookings/{bookingId} {
+      allow read: if true;
+      allow create: if true;
+      allow update: if true;
+      
+      // 2-Way Chat Messages subcollection
+      match /messages/{messageId} {
+        allow read, write: if true;
+      }
+    }
+    
+    // Driver Active Locations & Fleets
+    match /drivers/{driverId} {
+      allow read: if true;
+      allow write: if true;
+    }
+    
+    // Driver Earnings & Payout Ledger
+    match /payouts/{payoutId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
