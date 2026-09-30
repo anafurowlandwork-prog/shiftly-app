@@ -3,6 +3,7 @@ import { MapPin, Calendar, Clock, Box, ShieldCheck, ArrowRight, Check, CreditCar
 import VehicleSelector, { VEHICLE_TIERS } from './VehicleSelector';
 import AIItemScannerModal from './AIItemScannerModal';
 import CheckoutModal from './CheckoutModal';
+import { searchAddresses, calculateGeoDistance } from '../services/geocoding';
 
 export default function BookingWizard({ onBookingConfirmed }) {
   const [step, setStep] = useState(1);
@@ -42,9 +43,53 @@ export default function BookingWizard({ onBookingConfirmed }) {
   });
 
   const [selectedVehicle, setSelectedVehicle] = useState(VEHICLE_TIERS[1]);
-  const [helpersCount, setHelpersCount] = useState(2);
+  const [pickupCoords, setPickupCoords] = useState({ lat: 42.3601, lng: -71.0589 });
+  const [dropoffCoords, setDropoffCoords] = useState({ lat: 42.3370, lng: -71.1219 });
+  const [pickupSuggestions, setPickupSuggestions] = useState([]);
+  const [dropoffSuggestions, setDropoffSuggestions] = useState([]);
+  const [customDistance, setCustomDistance] = useState(14.2);
 
-  const calculatedDistance = hasViaStop ? 18.5 : 14.2;
+  const calculatedDistance = customDistance + (hasViaStop ? 4.3 : 0);
+
+  const handlePickupSearch = async (text) => {
+    setPickupAddress(text);
+    if (text.length >= 3) {
+      const results = await searchAddresses(text);
+      setPickupSuggestions(results);
+    } else {
+      setPickupSuggestions([]);
+    }
+  };
+
+  const handleSelectPickup = (item) => {
+    setPickupAddress(item.label);
+    setPickupCoords({ lat: item.lat, lng: item.lng });
+    setPickupSuggestions([]);
+    if (dropoffCoords) {
+      const dist = calculateGeoDistance(item.lat, item.lng, dropoffCoords.lat, dropoffCoords.lng);
+      setCustomDistance(dist);
+    }
+  };
+
+  const handleDropoffSearch = async (text) => {
+    setDropoffAddress(text);
+    if (text.length >= 3) {
+      const results = await searchAddresses(text);
+      setDropoffSuggestions(results);
+    } else {
+      setDropoffSuggestions([]);
+    }
+  };
+
+  const handleSelectDropoff = (item) => {
+    setDropoffAddress(item.label);
+    setDropoffCoords({ lat: item.lat, lng: item.lng });
+    setDropoffSuggestions([]);
+    if (pickupCoords) {
+      const dist = calculateGeoDistance(pickupCoords.lat, pickupCoords.lng, item.lat, item.lng);
+      setCustomDistance(dist);
+    }
+  };
 
   const updateItemQty = (itemKey, delta) => {
     setItems((prev) => ({
@@ -150,7 +195,7 @@ export default function BookingWizard({ onBookingConfirmed }) {
           </div>
 
           <div style={{ background: '#ffffff', borderRadius: '20px', border: '1px solid var(--border-subtle)', padding: '16px', marginBottom: '14px', boxShadow: 'var(--shadow-sm)' }}>
-            <div style={{ marginBottom: '12px' }}>
+            <div style={{ marginBottom: '12px', position: 'relative' }}>
               <label className="input-label" style={{ color: 'var(--accent-blue)' }}>PICKUP LOCATION</label>
               <div className="phone-input-wrapper" style={{ margin: 0 }}>
                 <MapPin size={18} color="var(--accent-blue)" />
@@ -159,10 +204,48 @@ export default function BookingWizard({ onBookingConfirmed }) {
                   className="phone-input"
                   style={{ fontSize: '0.925rem' }}
                   value={pickupAddress}
-                  onChange={(e) => setPickupAddress(e.target.value)}
+                  onChange={(e) => handlePickupSearch(e.target.value)}
                   placeholder="Street address, city, zip"
                 />
               </div>
+              {pickupSuggestions.length > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  background: '#ffffff',
+                  border: '1px solid #e4e4e7',
+                  borderRadius: '12px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                  zIndex: 999,
+                  maxHeight: '180px',
+                  overflowY: 'auto',
+                  marginTop: '4px'
+                }}>
+                  {pickupSuggestions.map((sug, i) => (
+                    <div
+                      key={i}
+                      onClick={() => handleSelectPickup(sug)}
+                      style={{
+                        padding: '10px 14px',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        borderBottom: i < pickupSuggestions.length - 1 ? '1px solid #f4f4f5' : 'none',
+                        color: '#09090b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = '#ffffff'}
+                    >
+                      <MapPin size={14} color="#0052ff" />
+                      <span>{sug.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {hasViaStop && (
@@ -182,7 +265,7 @@ export default function BookingWizard({ onBookingConfirmed }) {
               </div>
             )}
 
-            <div>
+            <div style={{ position: 'relative' }}>
               <label className="input-label">DESTINATION LOCATION</label>
               <div className="phone-input-wrapper" style={{ margin: 0 }}>
                 <MapPin size={18} color="#09090b" />
@@ -191,10 +274,48 @@ export default function BookingWizard({ onBookingConfirmed }) {
                   className="phone-input"
                   style={{ fontSize: '0.925rem' }}
                   value={dropoffAddress}
-                  onChange={(e) => setDropoffAddress(e.target.value)}
+                  onChange={(e) => handleDropoffSearch(e.target.value)}
                   placeholder="Destination address, city, zip"
                 />
               </div>
+              {dropoffSuggestions.length > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  background: '#ffffff',
+                  border: '1px solid #e4e4e7',
+                  borderRadius: '12px',
+                  boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                  zIndex: 999,
+                  maxHeight: '180px',
+                  overflowY: 'auto',
+                  marginTop: '4px'
+                }}>
+                  {dropoffSuggestions.map((sug, i) => (
+                    <div
+                      key={i}
+                      onClick={() => handleSelectDropoff(sug)}
+                      style={{
+                        padding: '10px 14px',
+                        fontSize: '0.85rem',
+                        cursor: 'pointer',
+                        borderBottom: i < dropoffSuggestions.length - 1 ? '1px solid #f4f4f5' : 'none',
+                        color: '#09090b',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = '#f1f5f9'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = '#ffffff'}
+                    >
+                      <MapPin size={14} color="#0052ff" />
+                      <span>{sug.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Quick Presets */}
