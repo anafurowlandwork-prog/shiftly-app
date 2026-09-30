@@ -32,18 +32,19 @@ const COUNTRIES = [
 export default function OnboardingScreen({ onCompleteAuth }) {
   const [authMethod, setAuthMethod] = useState('phone'); // 'phone' | 'email'
   const [onboardingStep, setOnboardingStep] = useState(1);
-  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]);
+  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[1]); // Default to UK (+44) or US
   const [isCountryPickerOpen, setIsCountryPickerOpen] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
   
-  const [phoneNumber, setPhoneNumber] = useState('(555) 392-8190');
-  const [emailAddress, setEmailAddress] = useState('alex.morgan@shiftly.com');
-  const [otpDigits, setOtpDigits] = useState(['1', '2', '3', '4', '5', '6']);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [emailAddress, setEmailAddress] = useState('');
+  const [otpDigits, setOtpDigits] = useState(['', '', '', '', '', '']);
   const [activeOtpIndex, setActiveOtpIndex] = useState(0);
   const [isVerifying, setIsVerifying] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [emailNotificationToast, setEmailNotificationToast] = useState(null);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [generatedOtpCode, setGeneratedOtpCode] = useState('');
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [isTermsOpen, setIsTermsOpen] = useState(false);
 
@@ -57,14 +58,16 @@ export default function OnboardingScreen({ onCompleteAuth }) {
     return () => clearTimeout(timer);
   }, [resendCooldown]);
 
-  const showEmailSimulatedToast = (email) => {
+  const showSimulatedNotification = (code, recipient, method) => {
     setEmailNotificationToast({
-      title: 'Shiftly Security Code',
-      body: `Your verification code is 123456 (sent to ${email})`
+      title: method === 'phone' ? 'Shiftly SMS Security Code' : 'Shiftly Email Security Code',
+      body: `Your verification code is ${code} (sent to ${recipient})`,
+      code: code,
+      method: method
     });
     setTimeout(() => {
       setEmailNotificationToast(null);
-    }, 5000);
+    }, 10000);
   };
 
   const formatPhoneNumber = (value) => {
@@ -92,12 +95,12 @@ export default function OnboardingScreen({ onCompleteAuth }) {
 
   const getCleanRecipient = () => {
     return authMethod === 'phone' 
-      ? `${selectedCountry.code}${phoneNumber.replace(/\D/g, '')}` 
+      ? `${selectedCountry.code} ${phoneNumber}`.trim() 
       : emailAddress.trim();
   };
 
   const handleContinue = async () => {
-    if (authMethod === 'phone' && phoneNumber.replace(/\D/g, '').length < 7) {
+    if (authMethod === 'phone' && phoneNumber.replace(/\D/g, '').length < 6) {
       setErrorMessage('Please enter a valid phone number.');
       return;
     }
@@ -107,23 +110,22 @@ export default function OnboardingScreen({ onCompleteAuth }) {
     }
     triggerHaptic('light');
     setErrorMessage('');
+    setOtpDigits(['', '', '', '', '', '']); // Clear all boxes for fresh user input
     const recipient = getCleanRecipient();
 
     try {
       const response = await sendRealOtp({ recipient, method: authMethod });
+      const activeCode = response?.generatedCode || Math.floor(100000 + Math.random() * 900000).toString();
+      setGeneratedOtpCode(activeCode);
       setOnboardingStep(2);
       setResendCooldown(30);
-
-      const displayCode = response?.generatedCode || '123456';
-      setEmailNotificationToast({
-        title: authMethod === 'phone' ? 'Shiftly SMS Security Code' : 'Shiftly Email Security Code',
-        body: `Your verification code is ${displayCode} (sent to ${recipient})`,
-        code: displayCode
-      });
-      setTimeout(() => setEmailNotificationToast(null), 9000);
+      showSimulatedNotification(activeCode, recipient, authMethod);
     } catch (err) {
+      const fallbackCode = Math.floor(100000 + Math.random() * 900000).toString();
+      setGeneratedOtpCode(fallbackCode);
       setOnboardingStep(2);
       setResendCooldown(30);
+      showSimulatedNotification(fallbackCode, recipient, authMethod);
     }
   };
 
@@ -160,17 +162,18 @@ export default function OnboardingScreen({ onCompleteAuth }) {
     }
   };
 
-  const fillDemoCode = () => {
+  const fillGeneratedCode = (targetCode) => {
     triggerHaptic('medium');
-    const demo = ['1', '2', '3', '4', '5', '6'];
-    setOtpDigits(demo);
+    const codeToUse = targetCode || generatedOtpCode || '123456';
+    const digits = codeToUse.slice(0, 6).split('');
+    setOtpDigits(digits);
     setErrorMessage('');
     setIsVerifying(true);
     setTimeout(() => {
       setIsVerifying(false);
       triggerHaptic('success');
       onCompleteAuth();
-    }, 500);
+    }, 400);
   };
 
   const handleVerify = async () => {
@@ -195,26 +198,46 @@ export default function OnboardingScreen({ onCompleteAuth }) {
     }
   };
 
-  const handleSwitchToEmailDelivery = () => {
+  const handleSwitchToEmailDelivery = async () => {
     triggerHaptic('light');
     setAuthMethod('email');
     setResendCooldown(30);
-    showEmailSimulatedToast(emailAddress);
+    setOtpDigits(['', '', '', '', '', '']);
+    const email = emailAddress || 'user@shiftly.com';
+    try {
+      const response = await sendRealOtp({ recipient: email, method: 'email' });
+      const code = response?.generatedCode || Math.floor(100000 + Math.random() * 900000).toString();
+      setGeneratedOtpCode(code);
+      showSimulatedNotification(code, email, 'email');
+    } catch (e) {}
   };
 
-  const handleSwitchToSmsDelivery = () => {
+  const handleSwitchToSmsDelivery = async () => {
     triggerHaptic('light');
     setAuthMethod('phone');
     setResendCooldown(30);
+    setOtpDigits(['', '', '', '', '', '']);
+    const phone = getCleanRecipient();
+    try {
+      const response = await sendRealOtp({ recipient: phone, method: 'phone' });
+      const code = response?.generatedCode || Math.floor(100000 + Math.random() * 900000).toString();
+      setGeneratedOtpCode(code);
+      showSimulatedNotification(code, phone, 'phone');
+    } catch (e) {}
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     if (resendCooldown > 0) return;
     triggerHaptic('light');
     setResendCooldown(30);
-    if (authMethod === 'email') {
-      showEmailSimulatedToast(emailAddress);
-    }
+    setOtpDigits(['', '', '', '', '', '']);
+    const recipient = getCleanRecipient();
+    try {
+      const response = await sendRealOtp({ recipient, method: authMethod });
+      const code = response?.generatedCode || Math.floor(100000 + Math.random() * 900000).toString();
+      setGeneratedOtpCode(code);
+      showSimulatedNotification(code, recipient, authMethod);
+    } catch (e) {}
   };
 
   const filteredCountries = COUNTRIES.filter(c => 
@@ -225,7 +248,7 @@ export default function OnboardingScreen({ onCompleteAuth }) {
   return (
     <div className="onboarding-screen" style={{ width: '100%', height: '100%', boxSizing: 'border-box', overflowY: 'auto', position: 'relative' }}>
       
-      {/* Simulated Push Notification Toast for Email Code */}
+      {/* Dynamic Push Notification Banner */}
       {emailNotificationToast && (
         <div 
           style={{
@@ -245,23 +268,27 @@ export default function OnboardingScreen({ onCompleteAuth }) {
             alignItems: 'center',
             gap: '12px',
             border: '1px solid rgba(255,255,255,0.15)',
-            animation: 'slideDown 0.3s ease-out'
+            animation: 'slideDown 0.3s ease-out',
+            cursor: 'pointer'
           }}
           onClick={() => {
-            fillDemoCode();
+            fillGeneratedCode(emailNotificationToast.code);
             setEmailNotificationToast(null);
           }}
         >
-          <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#0052ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-            <Mail size={20} color="#ffffff" />
+          <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#0052ff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            {emailNotificationToast.method === 'phone' ? <Smartphone size={20} color="#ffffff" /> : <Mail size={20} color="#ffffff" />}
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', letterSpacing: '0.04em', textTransform: 'uppercase' }}>Shiftly Security</span>
+              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#94a3b8', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                {emailNotificationToast.title}
+              </span>
               <span style={{ fontSize: '0.7rem', color: '#64748b' }}>now</span>
             </div>
             <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#ffffff', marginTop: '2px' }}>
-              Verification Code: <span style={{ color: '#60a5fa', fontWeight: 900 }}>123456</span>
+              Code: <span style={{ color: '#60a5fa', fontWeight: 900, letterSpacing: '1px' }}>{emailNotificationToast.code}</span>
+              <span style={{ fontSize: '0.72rem', color: '#a1a1aa', marginLeft: '6px' }}>(Tap to fill)</span>
             </div>
           </div>
         </div>
@@ -619,28 +646,32 @@ export default function OnboardingScreen({ onCompleteAuth }) {
               </p>
             )}
 
-            {/* Quick Demo Autofill Button */}
-            <button
-              onClick={fillDemoCode}
-              style={{
-                width: '100%',
-                padding: '10px',
-                borderRadius: '10px',
-                background: '#f1f5f9',
-                border: '1px dashed #cbd5e1',
-                color: '#0052ff',
-                fontSize: '0.8rem',
-                fontWeight: 700,
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px',
-                marginBottom: '16px'
-              }}
-            >
-              ⚡ Auto-Fill Demo Code (123456)
-            </button>
+            {/* One-Tap Autofill Real Generated Code */}
+            {generatedOtpCode && (
+              <button
+                type="button"
+                onClick={() => fillGeneratedCode(generatedOtpCode)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  borderRadius: '12px',
+                  background: 'rgba(0, 82, 255, 0.08)',
+                  border: '1.5px solid rgba(0, 82, 255, 0.25)',
+                  color: '#0052ff',
+                  fontSize: '0.85rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  marginBottom: '14px'
+                }}
+              >
+                <Sparkles size={16} color="#0052ff" />
+                Auto-Fill Code: <span style={{ letterSpacing: '2px', fontWeight: 900 }}>{generatedOtpCode}</span>
+              </button>
+            )}
 
             {/* Switch Delivery Channel Button */}
             <div style={{ textAlign: 'center', marginBottom: '16px' }}>
