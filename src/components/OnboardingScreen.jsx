@@ -26,7 +26,7 @@ const COUNTRIES = [
   { name: 'Brazil', code: '+55', flag: '🇧🇷', placeholder: '11 91234-5678' }
 ];
 
-export default function OnboardingScreen({ onCompleteAuth, onOpenSignIn }) {
+export default function OnboardingScreen({ onCompleteAuth }) {
   const [authMethod, setAuthMethod] = useState('phone'); // 'phone' | 'email'
   const [onboardingStep, setOnboardingStep] = useState(1);
   const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]);
@@ -447,28 +447,34 @@ export default function OnboardingScreen({ onCompleteAuth, onOpenSignIn }) {
               Continue with {authMethod === 'phone' ? 'Phone' : 'Email'} <ArrowRight size={18} />
             </button>
 
+            <button
+              type="button"
+              onClick={() => {
+                triggerHaptic('light');
+                onCompleteAuth();
+              }}
+              style={{
+                width: '100%',
+                background: 'transparent',
+                border: 'none',
+                color: '#0052ff',
+                fontSize: '0.85rem',
+                fontWeight: 700,
+                padding: '10px',
+                cursor: 'pointer',
+                marginTop: '4px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px'
+              }}
+            >
+              Skip & Explore App ➔
+            </button>
+
             <p className="legal-text">
               By continuing you agree to our Terms & Privacy Policy.
             </p>
-
-            {onOpenSignIn && (
-              <div style={{ textAlign: 'center', marginTop: '12px' }}>
-                <button
-                  type="button"
-                  onClick={onOpenSignIn}
-                  style={{
-                    background: 'none',
-                    border: 'none',
-                    color: '#0052FF',
-                    fontSize: '0.82rem',
-                    fontWeight: 700,
-                    cursor: 'pointer'
-                  }}
-                >
-                  Already have an account? Sign in
-                </button>
-              </div>
-            )}
           </div>
         </div>
       )}

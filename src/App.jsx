@@ -7,15 +7,6 @@ import BookingsList from './components/BookingsList';
 import DriverPortal from './components/DriverPortal';
 import VehicleSelector, { VEHICLE_TIERS } from './components/VehicleSelector';
 import NotificationToast from './components/NotificationToast';
-import AuthModal from './components/AuthModal';
-import { 
-  subscribeToAuthState, 
-  subscribeToBookings, 
-  saveBooking, 
-  updateBookingInCloud,
-  sendChatMessage,
-  logoutUser 
-} from './services/firebase';
 import { triggerHaptic, configureStatusBar, hideSplashScreen } from './utils/nativeBridge';
 import { Compass, Navigation, Clock, Truck, Wifi, Battery, Users } from 'lucide-react';
 
@@ -24,12 +15,12 @@ export default function App() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [activeTab, setActiveTab] = useState('welcome'); // 'welcome', 'book', 'track', 'trips', 'fleet', 'driver'
 
-  // User & Auth State
-  const [currentUser, setCurrentUser] = useState(null);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [authRoleTarget, setAuthRoleTarget] = useState('customer');
+  useEffect(() => {
+    hideSplashScreen();
+    configureStatusBar(false);
+  }, []);
 
-  // Bookings & Fleet State
+  
   const [userBookings, setUserBookings] = useState([]);
   const [currentBooking, setCurrentBooking] = useState(null);
   const [driverSyncedStatus, setDriverSyncedStatus] = useState(null);
@@ -56,73 +47,21 @@ export default function App() {
   // In-App Notification Toast
   const [activeToast, setActiveToast] = useState(null);
 
-  useEffect(() => {
-    hideSplashScreen();
-    configureStatusBar(false);
-
-    // Subscribe to Authentication State
-    const unsubscribeAuth = subscribeToAuthState((user) => {
-      setCurrentUser(user);
-    });
-
-    // Subscribe to Cloud / Persistent Bookings
-    const unsubscribeBookings = subscribeToBookings(currentUser?.uid, (bookings) => {
-      if (bookings && bookings.length > 0) {
-        setUserBookings(bookings);
-        if (!currentBooking) {
-          setCurrentBooking(bookings[0]);
-        }
-      }
-    });
-
-    return () => {
-      if (unsubscribeAuth) unsubscribeAuth();
-      if (unsubscribeBookings) unsubscribeBookings();
-    };
-  }, []);
-
-  const handleAuthSuccess = (user) => {
-    setCurrentUser(user);
-    setActiveToast({
-      icon: 'check',
-      title: 'Welcome!',
-      message: `Signed in as ${user.displayName || user.email}`
-    });
-    if (user.role === 'driver') {
-      setToggleMode('Driver');
-      setActiveTab('driver');
-    }
-  };
-
-  const handleLogout = async () => {
-    await logoutUser();
-    setCurrentUser(null);
-    setActiveToast({
-      icon: 'check',
-      title: 'Signed Out',
-      message: 'You have been successfully signed out.'
-    });
-  };
-
-  const handleSendCustomerMessage = async (newMsg) => {
+  const handleSendCustomerMessage = (newMsg) => {
     setChatMessages((prev) => [...prev, newMsg]);
-    if (currentBooking?.id) {
-      await sendChatMessage(currentBooking.id, newMsg);
-    }
+    // If user is currently looking at Driver portal, show toast
     if (toggleMode === 'Driver') {
       setActiveToast({
         icon: 'chat',
-        title: `Message from ${currentUser?.displayName || 'Sarah'}`,
+        title: 'New Customer Message (Sarah)',
         message: newMsg.text
       });
     }
   };
 
-  const handleSendDriverMessage = async (newMsg) => {
+  const handleSendDriverMessage = (newMsg) => {
     setChatMessages((prev) => [...prev, newMsg]);
-    if (currentBooking?.id) {
-      await sendChatMessage(currentBooking.id, newMsg);
-    }
+    // If user is looking at Customer mode, show toast
     if (toggleMode === 'Customer') {
       setActiveToast({
         icon: 'chat',
@@ -132,21 +71,14 @@ export default function App() {
     }
   };
 
-  const handleBookingConfirmed = async (newBooking) => {
-    const saved = await saveBooking({
-      ...newBooking,
-      userId: currentUser?.uid || 'guest_user',
-      customerName: currentUser?.displayName || 'Sarah Jenkins',
-      customerEmail: currentUser?.email || 'sarah@example.com'
-    });
-
-    setUserBookings((prev) => [saved, ...prev]);
-    setCurrentBooking(saved);
+  const handleBookingConfirmed = (newBooking) => {
+    setUserBookings((prev) => [newBooking, ...prev]);
+    setCurrentBooking(newBooking);
     setActiveTab('track');
     setActiveToast({
       icon: 'truck',
-      title: 'Move Confirmed & Saved!',
-      message: `Booking #${saved.id} is synced to cloud.`
+      title: 'Mover Dispatched!',
+      message: 'Marcus Vance (4.98 ★) accepted your move'
     });
   };
 
@@ -155,14 +87,13 @@ export default function App() {
     setActiveTab('track');
   };
 
-  const handleDriverStatusSync = async (newStatus) => {
+  const handleDriverStatusSync = (newStatus) => {
     setDriverSyncedStatus(newStatus);
     if (currentBooking) {
       setCurrentBooking((prev) => ({
         ...prev,
         status: newStatus
       }));
-      await updateBookingInCloud(currentBooking.id, { status: newStatus });
     }
     const statusTitles = {
       driver_en_route: 'Driver En Route to Pickup',
@@ -182,14 +113,6 @@ export default function App() {
 
   return (
     <div className="app-container">
-      {/* Auth Modal */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        onAuthSuccess={handleAuthSuccess}
-        initialRole={authRoleTarget}
-      />
-
       {/* Toast Notification Banner */}
       <NotificationToast 
         notification={activeToast} 
@@ -226,6 +149,7 @@ export default function App() {
         </button>
       </div>
 
+
       {/* Mobile Frame Container */}
       <div className={`mobile-frame ${isFullscreen ? 'fullscreen' : ''}`}>
         
@@ -246,12 +170,6 @@ export default function App() {
             <Header 
               setActiveTab={setActiveTab} 
               toggleMode={toggleMode}
-              currentUser={currentUser}
-              onOpenAuthModal={() => {
-                setAuthRoleTarget(toggleMode === 'Driver' ? 'driver' : 'customer');
-                setIsAuthModalOpen(true);
-              }}
-              onLogout={handleLogout}
               onToggleMode={() => {
                 const nextMode = toggleMode === 'Customer' ? 'Driver' : 'Customer';
                 setToggleMode(nextMode);
@@ -263,24 +181,11 @@ export default function App() {
           {/* Main App Screens */}
           <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             {activeTab === 'welcome' && (
-              <OnboardingScreen 
-                onCompleteAuth={() => setActiveTab('book')} 
-                onOpenSignIn={() => {
-                  setAuthRoleTarget('customer');
-                  setIsAuthModalOpen(true);
-                }}
-              />
+              <OnboardingScreen onCompleteAuth={() => setActiveTab('book')} />
             )}
 
             {activeTab === 'book' && (
-              <BookingWizard 
-                onBookingConfirmed={handleBookingConfirmed} 
-                currentUser={currentUser}
-                onRequireAuth={() => {
-                  setAuthRoleTarget('customer');
-                  setIsAuthModalOpen(true);
-                }}
-              />
+              <BookingWizard onBookingConfirmed={handleBookingConfirmed} />
             )}
 
             {activeTab === 'track' && (
@@ -332,7 +237,6 @@ export default function App() {
             {/* Driver Partner Dispatch Portal */}
             {activeTab === 'driver' && (
               <DriverPortal 
-                currentUser={currentUser}
                 onSyncStatusWithCustomer={handleDriverStatusSync}
                 sharedMessages={chatMessages}
                 onSendDriverMessage={handleSendDriverMessage}
