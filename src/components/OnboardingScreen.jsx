@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import ShiftlyLogo from './ShiftlyLogo';
 import LemfiShiftlyLogo from './LemfiShiftlyLogo';
+import PrivacyPolicyModal from './PrivacyPolicyModal';
+import TermsOfServiceModal from './TermsOfServiceModal';
 import { triggerHaptic } from '../utils/nativeBridge';
 
 const COUNTRIES = [
@@ -41,6 +43,8 @@ export default function OnboardingScreen({ onCompleteAuth }) {
   const [errorMessage, setErrorMessage] = useState('');
   const [emailNotificationToast, setEmailNotificationToast] = useState(null);
   const [resendCooldown, setResendCooldown] = useState(0);
+  const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
+  const [isTermsOpen, setIsTermsOpen] = useState(false);
 
   const inputRefs = useRef([]);
 
@@ -472,8 +476,23 @@ export default function OnboardingScreen({ onCompleteAuth }) {
               Skip & Explore App ➔
             </button>
 
-            <p className="legal-text">
-              By continuing you agree to our Terms & Privacy Policy.
+            <p className="legal-text" style={{ textAlign: 'center', marginTop: '8px' }}>
+              By continuing you agree to our{' '}
+              <button
+                type="button"
+                onClick={() => setIsTermsOpen(true)}
+                style={{ background: 'none', border: 'none', color: '#0052ff', textDecoration: 'underline', fontWeight: 700, fontSize: 'inherit', cursor: 'pointer', padding: 0 }}
+              >
+                Terms of Service
+              </button>{' '}
+              &{' '}
+              <button
+                type="button"
+                onClick={() => setIsPrivacyOpen(true)}
+                style={{ background: 'none', border: 'none', color: '#0052ff', textDecoration: 'underline', fontWeight: 700, fontSize: 'inherit', cursor: 'pointer', padding: 0 }}
+              >
+                Privacy Policy
+              </button>.
             </p>
           </div>
         </div>
@@ -784,6 +803,15 @@ export default function OnboardingScreen({ onCompleteAuth }) {
         </div>
       )}
 
+      {/* Privacy Policy Modal */}
+      {isPrivacyOpen && (
+        <PrivacyPolicyModal onClose={() => setIsPrivacyOpen(false)} />
+      )}
+
+      {/* Terms of Service Modal */}
+      {isTermsOpen && (
+        <TermsOfServiceModal onClose={() => setIsTermsOpen(false)} />
+      )}
     </div>
   );
 }
