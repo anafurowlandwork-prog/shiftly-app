@@ -17,6 +17,8 @@ jobs:
     steps:
       - name: 1. Checkout Repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: 2. Set up Node.js 22
         uses: actions/setup-node@v4
@@ -29,24 +31,32 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: 4. Install Dependencies & Build Web App
+      - name: 4. Build APK
         run: |
-          npm install
-          npm run build
+          (
+            set -e
+            npm install
+            npm run build
+            npx cap sync android
+            cd android
+            chmod +x gradlew
+            ./gradlew assembleDebug --no-daemon --stacktrace
+          ) 2>&1 | tee runner.log
 
-      - name: 5. Sync Capacitor Android
-        run: npx cap sync android
-
-      - name: 6. Build Android APK
-        run: |
-          cd android
-          chmod +x gradlew
-          ./gradlew assembleDebug --no-daemon
-
-      - name: 7. Upload APK Artifact
+      - name: 5. Upload APK on Success
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: shiftly-android-apk
           path: android/app/build/outputs/apk/debug/*.apk
-          if-no-files-found: error
           retention-days: 30
+
+      - name: 6. Save Log to Diagnostic Branch
+        if: always()
+        run: |
+          git config --global user.name "Shiftly CI"
+          git config --global user.email "ci@shiftly.app"
+          git checkout -B ci-logs
+          git add -f runner.log
+          git commit -m "ci: capture runner execution log [skip ci]" || true
+          git push -f origin ci-logs || true
