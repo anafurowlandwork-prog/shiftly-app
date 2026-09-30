@@ -7,6 +7,7 @@ import {
 import ShiftlyLogo from './ShiftlyLogo';
 import DriverProfileModal from './DriverProfileModal';
 import DriverChatSheet from './DriverChatSheet';
+import DriverEarningsModal from './DriverEarningsModal';
 
 export default function DriverPortal({ 
   onSyncStatusWithCustomer, 
@@ -17,6 +18,7 @@ export default function DriverPortal({
   const [isOnline, setIsOnline] = useState(true);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isEarningsOpen, setIsEarningsOpen] = useState(false);
   const [activeJob, setActiveJob] = useState(null);
   const [incomingOffer, setIncomingOffer] = useState(null);
   const [offerCountdown, setOfferCountdown] = useState(15);
@@ -177,8 +179,12 @@ export default function DriverPortal({
 
       {/* Driver Metric Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '16px' }}>
-        <div style={{ background: '#f8fafc', padding: '12px 10px', borderRadius: '12px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
-          <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Today's Pay</span>
+        <div 
+          onClick={() => setIsEarningsOpen(true)}
+          style={{ background: '#f8fafc', padding: '12px 10px', borderRadius: '12px', textAlign: 'center', border: '1px solid #e2e8f0', cursor: 'pointer', transition: 'transform 0.1s ease' }}
+          title="Click to open Stripe Connect Wallet"
+        >
+          <span style={{ fontSize: '0.7rem', color: '#0052ff', fontWeight: 700, display: 'block', textTransform: 'uppercase' }}>Today's Pay ⚡</span>
           <span style={{ fontSize: '1.15rem', color: '#09090b', fontWeight: 900 }}>${todayEarnings.toFixed(2)}</span>
         </div>
         <div style={{ background: '#f8fafc', padding: '12px 10px', borderRadius: '12px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
@@ -464,6 +470,11 @@ export default function DriverPortal({
       {/* Driver Profile Modal */}
       {isProfileOpen && (
         <DriverProfileModal onClose={() => setIsProfileOpen(false)} />
+      )}
+
+      {/* Driver Earnings & Stripe Instant Payouts Modal */}
+      {isEarningsOpen && (
+        <DriverEarningsModal onClose={() => setIsEarningsOpen(false)} />
       )}
 
       {/* Driver Chat Sheet with Customer */}

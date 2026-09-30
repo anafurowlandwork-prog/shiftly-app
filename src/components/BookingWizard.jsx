@@ -3,6 +3,7 @@ import { MapPin, Calendar, Clock, Box, ShieldCheck, ArrowRight, Check, CreditCar
 import VehicleSelector, { VEHICLE_TIERS } from './VehicleSelector';
 import AIItemScannerModal from './AIItemScannerModal';
 import CheckoutModal from './CheckoutModal';
+import { createMoveBooking } from '../services/backendService';
 
 export default function BookingWizard({ onBookingConfirmed }) {
   const [step, setStep] = useState(1);
@@ -76,7 +77,7 @@ export default function BookingWizard({ onBookingConfirmed }) {
     setIsCheckoutOpen(true);
   };
 
-  const handlePaymentSuccess = (paidDetails) => {
+  const handlePaymentSuccess = async (paidDetails) => {
     setIsCheckoutOpen(false);
     const newBooking = {
       id: 'SHFT-' + Math.floor(100000 + Math.random() * 900000),
@@ -104,6 +105,10 @@ export default function BookingWizard({ onBookingConfirmed }) {
       },
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
+
+    try {
+      await createMoveBooking(newBooking);
+    } catch (e) {}
 
     onBookingConfirmed(newBooking);
   };
