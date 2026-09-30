@@ -40,7 +40,7 @@ jobs:
             npx cap sync android
             cd android
             chmod +x gradlew
-            ./gradlew assembleDebug --no-daemon --stacktrace
+            ./gradlew assembleDebug --no-daemon
           ) 2>&1 | tee runner.log
 
       - name: 5. Upload APK on Success
