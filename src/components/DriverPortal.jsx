@@ -10,6 +10,7 @@ import DriverChatSheet from './DriverChatSheet';
 import DriverEarningsModal from './DriverEarningsModal';
 
 export default function DriverPortal({ 
+  currentBooking,
   onSyncStatusWithCustomer, 
   onSwitchToCustomer,
   sharedMessages = [],
@@ -26,19 +27,34 @@ export default function DriverPortal({
   const [completedCount, setCompletedCount] = useState(3);
   const [jobStep, setJobStep] = useState(0); // 0: Heading, 1: Arrived, 2: Loaded, 3: In Transit, 4: Delivered
 
-
-
-  // Demo incoming order
-  const sampleOffer = {
-    id: 'SH-8942',
-    customerName: 'Sarah Jenkins',
-    customerPhone: '+1 (555) 392-8190',
-    payout: 165.00,
-    distance: '4.8 mi',
+  // Real or Incoming Job Offer
+  const sampleOffer = currentBooking ? {
+    id: currentBooking.id || 'SHFT-8942',
+    customerName: 'Customer',
+    customerPhone: '+44 7378 142815',
+    payout: Number(currentBooking.total || 165),
+    distance: `${currentBooking.distanceMiles || 3.8} mi`,
     duration: '35 mins',
-    pickup: '742 Evergreen Terrace, Downtown',
-    dropoff: '10880 Wilshire Blvd, Westside',
-    vehicleTier: 'Large Box Truck',
+    pickup: currentBooking.pickup || 'Oxford Street, London',
+    dropoff: currentBooking.dropoff || 'King’s Road, Chelsea, London',
+    vehicleTier: currentBooking.vehicle?.name || 'Shiftly Flex',
+    items: [
+      { name: 'Living Room Furniture', qty: 1, weight: '140 lbs' },
+      { name: 'Queen Bed & Mattress', qty: 1, weight: '120 lbs' },
+      { name: 'Moving Boxes', qty: 8, weight: '160 lbs' }
+    ],
+    totalWeight: '420 lbs',
+    helpersNeeded: currentBooking.helpers || 2
+  } : {
+    id: 'SH-8942',
+    customerName: 'Verified Customer',
+    customerPhone: '+44 7378 142815',
+    payout: 165.00,
+    distance: '3.8 mi',
+    duration: '35 mins',
+    pickup: 'Oxford Street, London, W1D 1BS',
+    dropoff: 'King’s Road, Chelsea, London, SW3 4ND',
+    vehicleTier: 'Shiftly Flex (Box Truck)',
     items: [
       { name: '3-Seater Velvet Sofa', qty: 1, weight: '140 lbs' },
       { name: 'Queen Mattress & Frame', qty: 1, weight: '120 lbs' },

@@ -237,6 +237,7 @@ export default function App() {
             {/* Driver Partner Dispatch Portal */}
             {activeTab === 'driver' && (
               <DriverPortal 
+                currentBooking={currentBooking}
                 onSyncStatusWithCustomer={handleDriverStatusSync}
                 sharedMessages={chatMessages}
                 onSendDriverMessage={handleSendDriverMessage}

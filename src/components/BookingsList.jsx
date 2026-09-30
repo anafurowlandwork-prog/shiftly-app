@@ -5,58 +5,7 @@ export default function BookingsList({ bookings, onTrackBooking, onNewBooking })
   const [filter, setFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'COMPLETED'
   const [selectedReceipt, setSelectedReceipt] = useState(null);
 
-  const sampleBookings = [
-    {
-      id: 'SHFT-849201',
-      pickup: '742 Evergreen Terrace, Boston, MA',
-      dropoff: '1200 Beacon Street, Brookline, MA',
-      viaStop: '14 Public Storage Way, Cambridge, MA',
-      date: 'Today (Immediate Dispatch)',
-      time: 'ASAP (~30 mins)',
-      moveSize: '1-2 Bedroom Apt',
-      vehicle: { name: 'Shiftly Flex', image: '/assets/truck.png' },
-      helpers: 2,
-      total: '183.80',
-      status: 'IN_TRANSIT',
-      paymentMethod: 'Apple Pay',
-      items: '1 Sofa, 1 King Bed, 1 TV, 12 Boxes',
-      driver: {
-        name: 'Marcus Vance',
-        rating: '4.95 ★',
-        trips: '480+ moves',
-        phone: '+1 (555) 382-9102',
-        vehiclePlate: 'MA 7XF-992',
-        photo: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=256&q=80',
-      },
-      createdAt: '10:12 AM'
-    },
-    {
-      id: 'SHFT-109432',
-      pickup: '45 Harvard Ave, Cambridge, MA',
-      dropoff: '88 Commonwealth Ave, Boston, MA',
-      viaStop: null,
-      date: 'Sep 12, 2026',
-      time: '10:00 AM',
-      moveSize: 'Studio Apt',
-      vehicle: { name: 'Shiftly Mini', image: '/assets/van.png' },
-      helpers: 1,
-      total: '89.50',
-      status: 'COMPLETED',
-      paymentMethod: 'Visa •••• 4921',
-      items: '1 Desk, 1 Queen Bed, 8 Boxes',
-      driver: {
-        name: 'David Rossi',
-        rating: '4.98 ★',
-        trips: '610+ moves',
-        phone: '+1 (555) 912-3847',
-        vehiclePlate: 'MA 3B-781',
-        photo: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=256&q=80',
-      },
-      createdAt: 'Sep 12, 2026'
-    },
-  ];
-
-  const allBookings = bookings && bookings.length > 0 ? bookings : sampleBookings;
+  const allBookings = bookings || [];
 
   const filteredBookings = allBookings.filter((b) => {
     if (filter === 'ACTIVE') return b.status !== 'COMPLETED';
@@ -128,22 +77,38 @@ export default function BookingsList({ bookings, onTrackBooking, onNewBooking })
       </div>
 
       {/* Bookings Feed */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        {filteredBookings.map((trip) => {
-          const isActive = trip.status !== 'COMPLETED';
+      {filteredBookings.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '48px 20px', background: '#f8fafc', borderRadius: '20px', border: '1px dashed #cbd5e1', marginTop: '16px' }}>
+          <div style={{ width: '48px', height: '48px', borderRadius: '14px', background: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px auto' }}>
+            <Truck size={24} color="#64748b" />
+          </div>
+          <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.1rem', fontWeight: 800, color: '#09090b', marginBottom: '6px' }}>
+            No Moves Yet
+          </h3>
+          <p style={{ fontSize: '0.82rem', color: '#64748b', maxWidth: '280px', margin: '0 auto 16px auto' }}>
+            Enter your pickup and destination to schedule your on-demand move with live GPS tracking.
+          </p>
+          <button className="btn-black" onClick={onNewBooking} style={{ maxWidth: '200px', margin: '0 auto', fontSize: '0.85rem' }}>
+            + Book A Move <ArrowRight size={16} />
+          </button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {filteredBookings.map((trip) => {
+            const isActive = trip.status !== 'COMPLETED';
 
-          return (
-            <div
-              key={trip.id}
-              style={{
-                background: '#ffffff',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: '18px',
-                padding: '16px',
-                boxShadow: 'var(--shadow-sm)',
-                transition: 'transform 0.15s ease'
-              }}
-            >
+            return (
+              <div
+                key={trip.id}
+                style={{
+                  background: '#ffffff',
+                  border: '1px solid var(--border-subtle)',
+                  borderRadius: '18px',
+                  padding: '16px',
+                  boxShadow: 'var(--shadow-sm)',
+                  transition: 'transform 0.15s ease'
+                }}
+              >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#09090b', fontFamily: 'monospace' }}>
                   #{trip.id}
@@ -270,6 +235,7 @@ export default function BookingsList({ bookings, onTrackBooking, onNewBooking })
           );
         })}
       </div>
+      )}
 
       {/* Itemized Receipt Modal */}
       {selectedReceipt && (
