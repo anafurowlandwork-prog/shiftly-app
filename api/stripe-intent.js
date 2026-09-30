@@ -4,7 +4,7 @@
  */
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Credentials', true);
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -27,19 +27,27 @@ export default async function handler(req, res) {
     const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
 
     if (stripeSecretKey) {
-      // Real Stripe integration when secret key is provided in Vercel environment
-      const stripe = (await import('stripe')).default(stripeSecretKey);
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(Number(amount) * 100), // convert to cents
-        currency,
-        metadata: {
-          bookingId: bookingId || 'N/A',
-          customerEmail: customerEmail || 'N/A'
+      // Real Stripe integration via standard Stripe REST API (Zero external dependencies)
+      const params = new URLSearchParams();
+      params.append('amount', Math.round(Number(amount) * 100).toString());
+      params.append('currency', currency);
+      params.append('automatic_payment_methods[enabled]', 'true');
+      if (bookingId) params.append('metadata[bookingId]', bookingId);
+      if (customerEmail) params.append('metadata[customerEmail]', customerEmail);
+
+      const stripeRes = await fetch('https://api.stripe.com/v1/payment_intents', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${stripeSecretKey}`,
+          'Content-Type': 'application/x-www-form-urlencoded'
         },
-        automatic_payment_methods: {
-          enabled: true
-        }
+        body: params.toString()
       });
+
+      const paymentIntent = await stripeRes.json();
+      if (!stripeRes.ok) {
+        throw new Error(paymentIntent.error?.message || 'Failed to create payment intent');
+      }
 
       return res.status(200).json({
         clientSecret: paymentIntent.client_secret,
