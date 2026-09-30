@@ -26,7 +26,7 @@ const COUNTRIES = [
   { name: 'Brazil', code: '+55', flag: '🇧🇷', placeholder: '11 91234-5678' }
 ];
 
-export default function OnboardingScreen({ onCompleteAuth }) {
+export default function OnboardingScreen({ onCompleteAuth, onOpenSignIn }) {
   const [authMethod, setAuthMethod] = useState('phone'); // 'phone' | 'email'
   const [onboardingStep, setOnboardingStep] = useState(1);
   const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]);
@@ -450,6 +450,25 @@ export default function OnboardingScreen({ onCompleteAuth }) {
             <p className="legal-text">
               By continuing you agree to our Terms & Privacy Policy.
             </p>
+
+            {onOpenSignIn && (
+              <div style={{ textAlign: 'center', marginTop: '12px' }}>
+                <button
+                  type="button"
+                  onClick={onOpenSignIn}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: '#0052FF',
+                    fontSize: '0.82rem',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Already have an account? Sign in
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
