@@ -331,6 +331,12 @@ export default function App() {
                 authUser={authUser}
                 onLogout={handleLogout}
                 onNavigateToTab={(tab) => setActiveTab(tab)}
+                onUpdateUser={(updated) => {
+                  setAuthUser(updated);
+                  try {
+                    localStorage.setItem('shiftly_auth_user', JSON.stringify(updated));
+                  } catch (e) {}
+                }}
               />
             )}
 

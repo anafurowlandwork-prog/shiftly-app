@@ -55,16 +55,31 @@ export default function Header({ setActiveTab, toggleMode, onToggleMode, authUse
               display: 'flex',
               alignItems: 'center',
               gap: '6px',
-              padding: '5px 10px',
+              padding: authUser?.photoUrl ? '4px 10px 4px 5px' : '5px 10px',
               borderRadius: '20px',
               background: '#f4f4f5',
               border: '1px solid #e4e4e7',
               cursor: 'pointer',
-              color: '#09090b'
+              color: '#09090b',
+              transition: 'all 0.15s ease'
             }}
-            title="View Account & Logout"
+            title="View Account & Profile"
           >
-            <User size={14} color="#0052ff" />
+            {authUser?.photoUrl ? (
+              <img 
+                src={authUser.photoUrl} 
+                alt="Profile" 
+                style={{ 
+                  width: '20px', 
+                  height: '20px', 
+                  borderRadius: '50%', 
+                  objectFit: 'cover',
+                  border: '1px solid #0052ff'
+                }} 
+              />
+            ) : (
+              <User size={14} color="#0052ff" />
+            )}
             <span style={{ fontSize: '0.75rem', fontWeight: 700, maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {displayUser.split(' ')[0]}
             </span>

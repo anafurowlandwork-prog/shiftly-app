@@ -67,9 +67,11 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>Shiftly needs camera access to scan your room and cargo items with AI.</string>
+	<string>Shiftly needs camera access to capture your profile picture and scan rooms and cargo items with AI.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Shiftly needs photo library access to upload moving item photos.</string>
+	<string>Shiftly needs photo library access to select your profile picture and upload moving item photos.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>Shiftly needs access to save verified proof-of-delivery receipts and profile photos.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Shiftly needs your location to track moving truck arrivals and calculate accurate route telemetry.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
