@@ -5,7 +5,7 @@ import AIItemScannerModal from './AIItemScannerModal';
 import CustomHeavyItemModal from './CustomHeavyItemModal';
 import CheckoutModal from './CheckoutModal';
 import ShiftlyShieldModal, { SHIELD_TIERS } from './ShiftlyShieldModal';
-import { createMoveBooking } from '../services/backendService';
+import { createMoveBooking, sendBookingNotification } from '../services/backendService';
 import { searchAddressSuggestions, geocodeAddress, calculateDistanceMiles } from '../utils/geoUtils';
 import { formatCurrencyPrice, getCurrencyForCountryCode } from '../utils/currencyUtils';
 
@@ -152,12 +152,25 @@ export default function BookingWizard({ onBookingConfirmed }) {
   const handlePaymentSuccess = async (paidDetails) => {
     setIsCheckoutOpen(false);
 
+    let authUserData = null;
+    try {
+      const rawUser = localStorage.getItem('shiftly_auth_user');
+      if (rawUser) authUserData = JSON.parse(rawUser);
+    } catch (e) {}
+
+    const customerPhone = authUserData?.phone || (authUserData?.method === 'phone' ? authUserData?.recipient : '+44 7911 123456');
+    const customerEmail = authUserData?.email || (authUserData?.method === 'email' ? authUserData?.recipient : 'sarah.jenkins@example.com');
+    const customerName = authUserData?.recipient || (authUserData?.isGuest ? 'Guest User' : 'Sarah Jenkins');
+
     // Resolve exact GPS coordinates
     const finalPickupCoords = pickupCoords || await geocodeAddress(pickupAddress || '10 Oxford St, London');
     const finalDropoffCoords = dropoffCoords || await geocodeAddress(dropoffAddress || '25 King’s Rd, London');
 
     const newBooking = {
       id: 'SHFT-' + Math.floor(100000 + Math.random() * 900000),
+      customerName: customerName,
+      customerPhone: customerPhone,
+      customerEmail: customerEmail,
       pickup: pickupAddress || '10 Oxford St, London',
       dropoff: dropoffAddress || '25 King’s Rd, London',
       pickupCoordinates: finalPickupCoords,
@@ -196,7 +209,15 @@ export default function BookingWizard({ onBookingConfirmed }) {
 
     try {
       await createMoveBooking(newBooking);
-    } catch (e) {}
+      // Automatically send booking confirmation via real Twilio SMS and Resend HTML email
+      await sendBookingNotification({
+        booking: newBooking,
+        phone: customerPhone,
+        email: customerEmail
+      });
+    } catch (e) {
+      console.warn('Booking dispatch warning:', e.message);
+    }
 
     onBookingConfirmed(newBooking);
   };
