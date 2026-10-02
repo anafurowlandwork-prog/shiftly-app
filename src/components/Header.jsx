@@ -44,82 +44,31 @@ export default function Header({ setActiveTab, toggleMode, onToggleMode, authUse
           </button>
         )}
 
-        {/* User Account / Profile Menu */}
+        {/* User Account / Profile Button */}
         <div style={{ position: 'relative' }}>
           <button
             onClick={() => {
               triggerHaptic('light');
-              setShowProfileMenu(!showProfileMenu);
+              if (setActiveTab) setActiveTab('account');
             }}
             style={{
-              width: '32px',
-              height: '32px',
-              borderRadius: '50%',
-              background: '#f4f4f5',
-              border: '1px solid #e4e4e7',
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'center',
+              gap: '6px',
+              padding: '5px 10px',
+              borderRadius: '20px',
+              background: '#f4f4f5',
+              border: '1px solid #e4e4e7',
               cursor: 'pointer',
               color: '#09090b'
             }}
-            title="Account Options"
+            title="View Account & Logout"
           >
-            <User size={15} color="#09090b" />
+            <User size={14} color="#0052ff" />
+            <span style={{ fontSize: '0.75rem', fontWeight: 700, maxWidth: '80px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {displayUser.split(' ')[0]}
+            </span>
           </button>
-
-          {showProfileMenu && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '40px',
-                right: 0,
-                width: '190px',
-                background: '#ffffff',
-                borderRadius: '14px',
-                padding: '10px',
-                boxShadow: '0 10px 30px rgba(0,0,0,0.18)',
-                border: '1px solid #e2e8f0',
-                zIndex: 99999,
-                animation: 'fadeIn 0.15s ease'
-              }}
-            >
-              <div style={{ padding: '4px 6px 8px 6px', borderBottom: '1px solid #f1f5f9', marginBottom: '6px' }}>
-                <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 800, textTransform: 'uppercase', display: 'block' }}>
-                  Signed in as
-                </span>
-                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#09090b', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
-                  {displayUser}
-                </span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => {
-                  triggerHaptic('medium');
-                  setShowProfileMenu(false);
-                  if (onLogout) onLogout();
-                }}
-                style={{
-                  width: '100%',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 10px',
-                  borderRadius: '8px',
-                  border: 'none',
-                  background: '#fef2f2',
-                  color: '#ef4444',
-                  fontSize: '0.8rem',
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  textAlign: 'left'
-                }}
-              >
-                <LogOut size={14} /> Log Out / Switch
-              </button>
-            </div>
-          )}
         </div>
 
         <div className="status-badge-blue">

@@ -7,8 +7,9 @@ import BookingsList from './components/BookingsList';
 import DriverPortal from './components/DriverPortal';
 import VehicleSelector, { VEHICLE_TIERS } from './components/VehicleSelector';
 import NotificationToast from './components/NotificationToast';
+import AccountScreen from './components/AccountScreen';
 import { triggerHaptic, configureStatusBar, hideSplashScreen } from './utils/nativeBridge';
-import { Compass, Navigation, Clock, Truck, Wifi, Battery, Users } from 'lucide-react';
+import { Compass, Navigation, Clock, Truck, Wifi, Battery, Users, User } from 'lucide-react';
 
 export default function App() {
   const [toggleMode, setToggleMode] = useState('Customer'); // 'Customer' or 'Driver'
@@ -324,6 +325,15 @@ export default function App() {
               </div>
             )}
 
+            {/* Account & Profile Screen */}
+            {activeTab === 'account' && (
+              <AccountScreen
+                authUser={authUser}
+                onLogout={handleLogout}
+                onNavigateToTab={(tab) => setActiveTab(tab)}
+              />
+            )}
+
             {/* Driver Partner Dispatch Portal */}
             {activeTab === 'driver' && (
               <DriverPortal 
@@ -359,19 +369,19 @@ export default function App() {
               </button>
 
               <button
-                className={`nav-item ${activeTab === 'fleet' ? 'active' : ''}`}
-                onClick={() => setActiveTab('fleet')}
-              >
-                <Truck size={20} />
-                <span>Fleet Types</span>
-              </button>
-
-              <button
                 className={`nav-item ${activeTab === 'trips' ? 'active' : ''}`}
                 onClick={() => setActiveTab('trips')}
               >
                 <Clock size={20} />
                 <span>My Trips</span>
+              </button>
+
+              <button
+                className={`nav-item ${activeTab === 'account' ? 'active' : ''}`}
+                onClick={() => setActiveTab('account')}
+              >
+                <User size={20} />
+                <span>Account</span>
               </button>
             </nav>
           )}
