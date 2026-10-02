@@ -5,8 +5,8 @@ import React from 'react';
  * Featuring the official 3D extruded Shiftly brandmark in HD.
  */
 export default function ShiftlyLogo({ 
-  size = 36, 
-  variant = 'inline', 
+  size = 52, 
+  variant = 'badge', 
   theme = 'light',
   className = '',
   style = {}
@@ -17,19 +17,20 @@ export default function ShiftlyLogo({
       alt="Shiftly Official Logo" 
       style={{ 
         width: `${size}px`, 
-        height: `${size * 0.88}px`, 
-        borderRadius: '9px',
+        height: `${size * 0.90}px`, 
+        borderRadius: `${Math.max(10, Math.round(size * 0.22))}px`,
         objectFit: 'cover',
         display: 'block',
         flexShrink: 0,
-        boxShadow: '0 4px 12px rgba(0, 82, 255, 0.22)',
-        border: '1.5px solid rgba(255, 255, 255, 0.8)'
+        boxShadow: '0 6px 20px rgba(0, 82, 255, 0.35), 0 2px 8px rgba(0, 0, 0, 0.14)',
+        border: '2px solid #ffffff',
+        transition: 'transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.18s ease'
       }} 
     />
   );
 
-  // Pure Icon / Badge Only (Official Logo Emblem)
-  if (variant === 'icon-only' || variant === 'badge' || variant === 'brandmark') {
+  // Standalone Brandmark / Badge (Default)
+  if (variant === 'badge' || variant === 'icon-only' || variant === 'brandmark' || variant === 'standalone') {
     return (
       <div 
         className={`shiftly-logo-badge ${className}`} 
@@ -63,14 +64,14 @@ export default function ShiftlyLogo({
     );
   }
 
-  // Default: 'inline' — Displays the Official Shiftly Logo Emblem with optional bold title
+  // Fallback 'inline' with wordmark if explicitly requested
   return (
     <div 
       className={`shiftly-brandmark-inline ${className}`} 
       style={{ 
         display: 'inline-flex', 
         alignItems: 'center', 
-        gap: '9px', 
+        gap: '10px', 
         ...style 
       }}
     >
@@ -78,7 +79,7 @@ export default function ShiftlyLogo({
       <span 
         className="lemfi-3d-title-dark" 
         style={{ 
-          fontSize: `${Math.max(18, size * 0.58)}px`,
+          fontSize: `${Math.max(20, size * 0.58)}px`,
           letterSpacing: '-0.03em',
           fontFamily: 'var(--font-heading)',
           color: '#09090b',
