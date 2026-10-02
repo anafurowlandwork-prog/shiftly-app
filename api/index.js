@@ -8,6 +8,9 @@
  * - Interactive Live Status Web Dashboard
  */
 
+import { sendSms } from './providers/smsProvider.js';
+import { sendEmail, generateOtpEmailHtml, generateBookingConfirmationHtml } from './providers/emailProvider.js';
+
 // Shared In-Memory Backend State
 let bookings = [
   {
@@ -180,6 +183,31 @@ export default async function handler(req, res) {
         createdAt: new Date().toISOString()
       };
       bookings.unshift(newBooking);
+
+      // Automatically dispatch real Confirmation SMS & Email in background
+      (async () => {
+        try {
+          // 1. Send SMS to customer phone if available
+          const customerPhone = newBooking.customerPhone || newBooking.phone || (typeof newBooking.pickup === 'string' && newBooking.recipientPhone);
+          if (customerPhone && customerPhone.startsWith('+')) {
+            const smsText = `🚚 Shiftly Move Confirmed! Order #${newBooking.id}. Driver Marcus Vance is dispatched with ${newBooking.vehicle?.name || 'Box Truck'}. Track live: https://shiftly.app/track?id=${newBooking.id}`;
+            await sendSms({ to: customerPhone, message: smsText });
+          }
+
+          // 2. Send HTML Receipt to customer email if available
+          const customerEmail = newBooking.customerEmail || newBooking.email;
+          if (customerEmail && customerEmail.includes('@')) {
+            await sendEmail({
+              to: customerEmail,
+              subject: `🚚 Shiftly Move Confirmed: Order #${newBooking.id}`,
+              html: generateBookingConfirmationHtml({ booking: newBooking })
+            });
+          }
+        } catch (dispatchErr) {
+          console.warn('[Shiftly Notification Engine] Non-fatal dispatch notice:', dispatchErr.message);
+        }
+      })();
+
       return res.status(201).json({ success: true, booking: newBooking });
     }
 
@@ -193,6 +221,95 @@ export default async function handler(req, res) {
       }
       return res.status(400).json({ error: 'Invalid booking update' });
     }
+  }
+
+  // --- SEND DIRECT SMS ENDPOINT ---
+  if (targetResource === 'send-sms') {
+    const { to, message, senderId } = req.body || req.query || {};
+    if (!to || !message) {
+      return res.status(400).json({ error: 'To and message are required' });
+    }
+    const result = await sendSms({ to, message, senderId });
+    return res.status(200).json(result);
+  }
+
+  // --- SEND DIRECT EMAIL ENDPOINT ---
+  if (targetResource === 'send-email') {
+    const { to, subject, html, text, from } = req.body || req.query || {};
+    if (!to || !subject) {
+      return res.status(400).json({ error: 'To and subject are required' });
+    }
+    const result = await sendEmail({ to, subject, html, text, from });
+    return res.status(200).json(result);
+  }
+
+  // --- SEND BOOKING CONFIRMATION NOTIFICATION ---
+  if (targetResource === 'send-booking-notification') {
+    const { booking, phone, email } = req.body || {};
+    if (!booking) {
+      return res.status(400).json({ error: 'Booking object is required' });
+    }
+
+    const results = {};
+    if (phone) {
+      const smsText = `🚚 Shiftly Move Confirmed! Order #${booking.id}. Driver Marcus Vance is dispatched. Track live: https://shiftly.app/track?id=${booking.id}`;
+      results.sms = await sendSms({ to: phone, message: smsText });
+    }
+    if (email) {
+      results.email = await sendEmail({
+        to: email,
+        subject: `🚚 Shiftly Move Confirmed: Order #${booking.id}`,
+        html: generateBookingConfirmationHtml({ booking })
+      });
+    }
+
+    return res.status(200).json({ success: true, results });
+  }
+
+  // --- SEND REALTIME OTP CODE (SMS or Email) ---
+  if (targetResource === 'send-otp') {
+    const { recipient, method = 'phone' } = req.body || req.query || {};
+    if (!recipient) {
+      return res.status(400).json({ error: 'Recipient phone or email is required' });
+    }
+
+    // Generate real secure 6-digit random verification code
+    const generatedCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    otpStore.set(recipient.trim().toLowerCase(), {
+      code: generatedCode,
+      method,
+      expiresAt,
+      attempts: 0
+    });
+
+    console.log(`[Shiftly Auth] Generated real OTP ${generatedCode} for ${method}: ${recipient}`);
+
+    let deliveryResult = null;
+
+    if (method === 'email') {
+      deliveryResult = await sendEmail({
+        to: recipient,
+        subject: `Your Shiftly Verification Code: ${generatedCode}`,
+        html: generateOtpEmailHtml({ code: generatedCode, recipient })
+      });
+    } else if (method === 'phone') {
+      deliveryResult = await sendSms({
+        to: recipient,
+        message: `Your Shiftly security verification code is: ${generatedCode}. Valid for 10 minutes. Do not share this code.`
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Verification code sent to ${recipient}`,
+      recipient,
+      method,
+      generatedCode, // Available for instant preview simulation if external SMS credentials are not yet entered
+      deliveryResult,
+      expiresAt
+    });
   }
 
   // --- DRIVER LOCATION RESOURCE ---

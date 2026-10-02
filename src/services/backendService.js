@@ -320,3 +320,55 @@ export async function verifyRealOtp({ recipient, code }) {
   }
 }
 
+/**
+ * Sends a real SMS notification via Twilio / Termii / Gateway
+ */
+export async function sendDirectSms({ to, message }) {
+  try {
+    const res = await fetch('/api?resource=send-sms', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, message })
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn('SMS dispatch error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Sends a real transactional HTML email via Resend / SendGrid / Postmark
+ */
+export async function sendDirectEmail({ to, subject, html, text }) {
+  try {
+    const res = await fetch('/api?resource=send-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ to, subject, html, text })
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn('Email dispatch error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+/**
+ * Dispatches real-time booking confirmation SMS and HTML receipt
+ */
+export async function sendBookingNotification({ booking, phone, email }) {
+  try {
+    const res = await fetch('/api?resource=send-booking-notification', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ booking, phone, email })
+    });
+    return await res.json();
+  } catch (err) {
+    console.warn('Booking notification error:', err.message);
+    return { success: false, error: err.message };
+  }
+}
+
+
