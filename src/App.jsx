@@ -13,18 +13,53 @@ import { Compass, Navigation, Clock, Truck, Wifi, Battery, Users } from 'lucide-
 export default function App() {
   const [toggleMode, setToggleMode] = useState('Customer'); // 'Customer' or 'Driver'
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [activeTab, setActiveTab] = useState('welcome'); // 'welcome', 'book', 'track', 'trips', 'fleet', 'driver'
+
+  // Initialize Auth & Booking State from LocalStorage
+  const [authUser, setAuthUser] = useState(() => {
+    try {
+      const stored = localStorage.getItem('shiftly_auth_user');
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const [activeTab, setActiveTab] = useState(() => {
+    try {
+      const storedAuth = localStorage.getItem('shiftly_auth_user');
+      const storedBooking = localStorage.getItem('shiftly_current_booking');
+      if (storedBooking) return 'track';
+      if (storedAuth) return 'book';
+      return 'welcome';
+    } catch (e) {
+      return 'welcome';
+    }
+  });
 
   useEffect(() => {
     hideSplashScreen();
     configureStatusBar(false);
   }, []);
 
-  
-  const [userBookings, setUserBookings] = useState([]);
-  const [currentBooking, setCurrentBooking] = useState(null);
-  const [driverSyncedStatus, setDriverSyncedStatus] = useState(null);
+  const [userBookings, setUserBookings] = useState(() => {
+    try {
+      const stored = localStorage.getItem('shiftly_user_bookings');
+      return stored ? JSON.parse(stored) : [];
+    } catch (e) {
+      return [];
+    }
+  });
 
+  const [currentBooking, setCurrentBooking] = useState(() => {
+    try {
+      const stored = localStorage.getItem('shiftly_current_booking');
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  const [driverSyncedStatus, setDriverSyncedStatus] = useState(null);
   const [previewVehicle, setPreviewVehicle] = useState(VEHICLE_TIERS[1]);
   const [previewHelpers, setPreviewHelpers] = useState(2);
 
@@ -46,6 +81,21 @@ export default function App() {
 
   // In-App Notification Toast
   const [activeToast, setActiveToast] = useState(null);
+
+  const handleLogout = () => {
+    try {
+      localStorage.removeItem('shiftly_auth_user');
+      localStorage.removeItem('shiftly_current_booking');
+    } catch (e) {}
+    setAuthUser(null);
+    setCurrentBooking(null);
+    setActiveTab('welcome');
+    setActiveToast({
+      icon: 'user',
+      title: 'Signed Out',
+      message: 'You have returned to the sign in screen'
+    });
+  };
 
   const handleSendCustomerMessage = (newMsg) => {
     setChatMessages((prev) => [...prev, newMsg]);
@@ -72,8 +122,17 @@ export default function App() {
   };
 
   const handleBookingConfirmed = (newBooking) => {
-    setUserBookings((prev) => [newBooking, ...prev]);
+    setUserBookings((prev) => {
+      const updated = [newBooking, ...prev];
+      try {
+        localStorage.setItem('shiftly_user_bookings', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
     setCurrentBooking(newBooking);
+    try {
+      localStorage.setItem('shiftly_current_booking', JSON.stringify(newBooking));
+    } catch (e) {}
     setActiveTab('track');
     setActiveToast({
       icon: 'truck',
@@ -84,16 +143,22 @@ export default function App() {
 
   const handleTrackExistingBooking = (booking) => {
     setCurrentBooking(booking);
+    try {
+      localStorage.setItem('shiftly_current_booking', JSON.stringify(booking));
+    } catch (e) {}
     setActiveTab('track');
   };
 
   const handleDriverStatusSync = (newStatus) => {
     setDriverSyncedStatus(newStatus);
     if (currentBooking) {
-      setCurrentBooking((prev) => ({
-        ...prev,
-        status: newStatus
-      }));
+      setCurrentBooking((prev) => {
+        const updated = { ...prev, status: newStatus };
+        try {
+          localStorage.setItem('shiftly_current_booking', JSON.stringify(updated));
+        } catch (e) {}
+        return updated;
+      });
     }
     const statusTitles = {
       driver_en_route: 'Driver En Route to Pickup',
@@ -170,6 +235,8 @@ export default function App() {
             <Header 
               setActiveTab={setActiveTab} 
               toggleMode={toggleMode}
+              authUser={authUser}
+              onLogout={handleLogout}
               onToggleMode={() => {
                 const nextMode = toggleMode === 'Customer' ? 'Driver' : 'Customer';
                 setToggleMode(nextMode);
@@ -181,7 +248,12 @@ export default function App() {
           {/* Main App Screens */}
           <main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
             {activeTab === 'welcome' && (
-              <OnboardingScreen onCompleteAuth={() => setActiveTab('book')} />
+              <OnboardingScreen 
+                onCompleteAuth={(userData) => {
+                  setAuthUser(userData);
+                  setActiveTab('book');
+                }} 
+              />
             )}
 
             {activeTab === 'book' && (

@@ -1,5 +1,6 @@
 import React from 'react';
 import { CheckCircle2, Users, ArrowRight } from 'lucide-react';
+import { formatCurrencyPrice } from '../utils/currencyUtils';
 
 export const VEHICLE_TIERS = [
   {
@@ -46,7 +47,9 @@ export const VEHICLE_TIERS = [
   },
 ];
 
-export default function VehicleSelector({ selectedVehicle, setSelectedVehicle, helpersCount, setHelpersCount, calculatedDistance = 14 }) {
+export default function VehicleSelector({ selectedVehicle, setSelectedVehicle, helpersCount, setHelpersCount, calculatedDistance = 14, countryCode = '+44' }) {
+  const activeCountryCode = typeof window !== 'undefined' ? (localStorage.getItem('shiftly_user_country_code') || countryCode) : countryCode;
+
   return (
     <div style={{ marginTop: '4px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px' }}>
@@ -65,7 +68,9 @@ export default function VehicleSelector({ selectedVehicle, setSelectedVehicle, h
 
       {VEHICLE_TIERS.map((v) => {
         const isSelected = selectedVehicle.id === v.id;
-        const estimatedTotal = (v.basePrice + (v.perMile * calculatedDistance) + (helpersCount > 1 ? (helpersCount - 1) * 35 : 0)).toFixed(2);
+        const rawTotal = v.basePrice + (v.perMile * calculatedDistance) + (helpersCount > 1 ? (helpersCount - 1) * 35 : 0);
+        const formattedPrice = formatCurrencyPrice(rawTotal, activeCountryCode);
+        const formattedBase = formatCurrencyPrice(v.basePrice, activeCountryCode, false);
 
         return (
           <div
@@ -94,7 +99,7 @@ export default function VehicleSelector({ selectedVehicle, setSelectedVehicle, h
 
               <div style={{ textAlign: 'right' }}>
                 <span style={{ fontSize: '1.35rem', fontFamily: 'var(--font-heading)', fontWeight: 800, color: '#09090b', letterSpacing: '-0.02em' }}>
-                  ${estimatedTotal}
+                  {formattedPrice}
                 </span>
                 <p style={{ fontSize: '0.675rem', color: 'var(--text-secondary)' }}>
                   Estimated Total
@@ -117,7 +122,7 @@ export default function VehicleSelector({ selectedVehicle, setSelectedVehicle, h
               </div>
               <div>
                 <span style={{ color: 'var(--text-secondary)', display: 'block' }}>Base Rate</span>
-                <strong style={{ color: '#09090b', fontSize: '0.8rem' }}>${v.basePrice}</strong>
+                <strong style={{ color: '#09090b', fontSize: '0.8rem' }}>{formattedBase}</strong>
               </div>
             </div>
           </div>

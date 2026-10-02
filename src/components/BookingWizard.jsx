@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { MapPin, Calendar, Clock, Box, ShieldCheck, ArrowRight, Check, CreditCard, Sparkles, Plus, Minus, Home, Briefcase, Warehouse, Tag, Layers, Camera, Search, Navigation } from 'lucide-react';
+import { MapPin, Calendar, Clock, Box, ShieldCheck, ArrowRight, Check, CreditCard, Sparkles, Plus, Minus, Home, Briefcase, Warehouse, Tag, Layers, Camera, Search, Navigation, Scale, Trash2 } from 'lucide-react';
 import VehicleSelector, { VEHICLE_TIERS } from './VehicleSelector';
 import AIItemScannerModal from './AIItemScannerModal';
+import CustomHeavyItemModal from './CustomHeavyItemModal';
 import CheckoutModal from './CheckoutModal';
 import { createMoveBooking } from '../services/backendService';
 import { searchAddressSuggestions, geocodeAddress, calculateDistanceMiles } from '../utils/geoUtils';
+import { formatCurrencyPrice, getCurrencyForCountryCode } from '../utils/currencyUtils';
 
 export default function BookingWizard({ onBookingConfirmed }) {
   const [step, setStep] = useState(1);
@@ -26,7 +28,16 @@ export default function BookingWizard({ onBookingConfirmed }) {
   const [isSearchingPickup, setIsSearchingPickup] = useState(false);
   const [isSearchingDropoff, setIsSearchingDropoff] = useState(false);
 
-  const [moveDate, setMoveDate] = useState('Today (Immediate Dispatch)');
+  // Dynamic Country Code & Currency
+  const userCountryCode = typeof window !== 'undefined' ? (localStorage.getItem('shiftly_user_country_code') || '+44') : '+44';
+
+  // Schedule Window (Today, Tomorrow, or Custom Exact Date)
+  const [dateType, setDateType] = useState('today'); // 'today' | 'tomorrow' | 'custom'
+  const [customExactDate, setCustomExactDate] = useState(() => {
+    const d = new Date();
+    d.setDate(d.getDate() + 2);
+    return d.toISOString().split('T')[0];
+  });
   const [timeSlot, setTimeSlot] = useState('ASAP (Mover arrives in ~30 mins)');
   
   const [moveSize, setMoveSize] = useState('1-2 Bedroom Apt');
@@ -37,7 +48,9 @@ export default function BookingWizard({ onBookingConfirmed }) {
   const [promoAppliedMsg, setPromoAppliedMsg] = useState('');
 
   const [isAIScannerOpen, setIsAIScannerOpen] = useState(false);
+  const [isCustomItemModalOpen, setIsCustomItemModalOpen] = useState(false);
 
+  // Standard Items
   const [items, setItems] = useState({
     sofa: 1,
     tv: 1,
@@ -45,6 +58,9 @@ export default function BookingWizard({ onBookingConfirmed }) {
     diningSet: 1,
     movingBoxes: 12,
   });
+
+  // Custom & Specialty Heavy Items (Pianos, Safes, Treadmills, etc.)
+  const [customHeavyItems, setCustomHeavyItems] = useState([]);
 
   const [addOns, setAddOns] = useState({
     packing: true,
@@ -107,14 +123,21 @@ export default function BookingWizard({ onBookingConfirmed }) {
     }
   };
 
+  const customItemsTotalFee = customHeavyItems.reduce((acc, it) => acc + (it.fee * (it.qty || 1)), 0);
   const baseFare = selectedVehicle.basePrice;
   const mileageFare = selectedVehicle.perMile * calculatedDistance;
   const extraMoverFee = helpersCount > 1 ? (helpersCount - 1) * 35 : 0;
   const viaStopFee = hasViaStop ? 25 : 0;
   const stairsFee = accessType === 'Stairs (3rd Floor+)' ? 30 : accessType === 'Stairs (2nd Floor)' ? 15 : 0;
-  const addOnsTotal = (addOns.packing ? 25 : 0) + (addOns.disassembly ? 40 : 0) + (addOns.fragileInsurance ? 20 : 0);
+  const addOnsTotal = (addOns.packing ? 25 : 0) + (addOns.disassembly ? 40 : 0) + (addOns.fragileInsurance ? 20 : 0) + customItemsTotalFee;
   const rawTotal = baseFare + mileageFare + extraMoverFee + viaStopFee + stairsFee + addOnsTotal;
   const grandTotal = Math.max(0, rawTotal - discountAmount).toFixed(2);
+
+  const getEffectiveMoveDate = () => {
+    if (dateType === 'today') return 'Today (Immediate Dispatch)';
+    if (dateType === 'tomorrow') return 'Tomorrow';
+    return customExactDate ? new Date(customExactDate).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : 'Scheduled Date';
+  };
 
   const handleConfirm = () => {
     setIsCheckoutOpen(true);
@@ -135,11 +158,16 @@ export default function BookingWizard({ onBookingConfirmed }) {
       dropoffCoordinates: finalDropoffCoords,
       distanceMiles: calculatedDistance,
       viaStop: hasViaStop ? viaStopAddress : null,
-      date: moveDate,
+      date: getEffectiveMoveDate(),
       time: timeSlot,
       vehicle: selectedVehicle,
       helpers: helpersCount,
       moveSize: moveSize,
+      items: items,
+      customHeavyItems: customHeavyItems,
+      countryCode: userCountryCode,
+      currencyCode: getCurrencyForCountryCode(userCountryCode).currencyCode,
+      currencySymbol: getCurrencyForCountryCode(userCountryCode).symbol,
       paymentMethod: paidDetails?.paymentMethod || paymentMethod,
       discount: discountAmount,
       total: paidDetails?.totalPrice || grandTotal,
@@ -164,7 +192,6 @@ export default function BookingWizard({ onBookingConfirmed }) {
     onBookingConfirmed(newBooking);
   };
 
-
   const handleAIScanResult = (room) => {
     setMoveSize(room.name);
     if (room.itemCounts) {
@@ -180,6 +207,10 @@ export default function BookingWizard({ onBookingConfirmed }) {
     setAddOns((prev) => ({ ...prev, packing: true }));
   };
 
+  const handleAddCustomHeavyItem = (newItem) => {
+    setCustomHeavyItems((prev) => [...prev, newItem]);
+  };
+
   return (
     <div style={{ padding: '18px 18px 90px 18px', width: '100%', background: '#ffffff' }}>
       {/* Step Indicator */}
@@ -190,7 +221,7 @@ export default function BookingWizard({ onBookingConfirmed }) {
         <div className={`step-line ${step > 2 ? 'active' : ''}`}></div>
         <div className={`step-dot ${step === 3 ? 'active' : step > 3 ? 'completed' : ''}`}>3</div>
         <div className={`step-line ${step > 3 ? 'active' : ''}`}></div>
-        <div className={`step-dot ${step === 4 ? 'active' : ''}`}>4</div>
+        <div className={`step-dot ${step === 4 ? 'active' : step > 4 ? 'completed' : ''}`}>4</div>
       </div>
 
       {/* Step 1: Pickup, Multi-Stop & Destination */}
@@ -294,7 +325,7 @@ export default function BookingWizard({ onBookingConfirmed }) {
 
             {hasViaStop && (
               <div style={{ marginBottom: '14px' }}>
-                <label className="input-label" style={{ color: '#09090b' }}>INTERMEDIATE STOP (+ $25)</label>
+                <label className="input-label" style={{ color: '#09090b' }}>INTERMEDIATE STOP (+ {formatCurrencyPrice(25, userCountryCode, false)})</label>
                 <div className="phone-input-wrapper" style={{ margin: 0 }}>
                   <Layers size={18} color="#09090b" style={{ flexShrink: 0 }} />
                   <input
@@ -425,26 +456,52 @@ export default function BookingWizard({ onBookingConfirmed }) {
             </div>
           </div>
 
-          {/* Schedule */}
+          {/* Schedule Move Window with Custom Exact Date */}
           <div style={{ background: '#ffffff', borderRadius: '20px', border: '1px solid var(--border-subtle)', padding: '16px', marginBottom: '18px', boxShadow: 'var(--shadow-sm)' }}>
             <h4 style={{ fontFamily: 'var(--font-heading)', fontSize: '0.95rem', color: '#09090b', fontWeight: 800, marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <Calendar size={16} color="var(--accent-blue)" /> Schedule Window
+              <Calendar size={16} color="var(--accent-blue)" /> Schedule Move Window
             </h4>
 
-            <div style={{ marginBottom: '10px' }}>
-              <label className="input-label">DATE</label>
-              <select
-                className="phone-input"
-                style={{ background: 'var(--bg-input)', padding: '12px 14px', borderRadius: '14px', width: '100%', fontSize: '0.9rem' }}
-                value={moveDate}
-                onChange={(e) => setMoveDate(e.target.value)}
-              >
-                <option value="Today (Immediate Dispatch)">Today (Immediate On-Demand Dispatch)</option>
-                <option value="Tomorrow">Tomorrow</option>
-                <option value="This Weekend">This Weekend (Saturday)</option>
-                <option value="Next Week">Next Week</option>
-              </select>
+            {/* Date Type Selector Pills */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '6px', marginBottom: '12px' }}>
+              {[
+                { id: 'today', label: 'Today (Immediate)' },
+                { id: 'tomorrow', label: 'Tomorrow' },
+                { id: 'custom', label: 'Pick Date 📅' }
+              ].map((dt) => (
+                <button
+                  key={dt.id}
+                  type="button"
+                  onClick={() => setDateType(dt.id)}
+                  style={{
+                    background: dateType === dt.id ? '#09090b' : 'var(--bg-input)',
+                    color: dateType === dt.id ? '#ffffff' : '#09090b',
+                    border: 'none',
+                    padding: '10px 8px',
+                    borderRadius: '12px',
+                    fontSize: '0.78rem',
+                    fontWeight: 700,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {dt.label}
+                </button>
+              ))}
             </div>
+
+            {/* Exact Date Picker if custom selected */}
+            {dateType === 'custom' && (
+              <div style={{ marginBottom: '12px', background: '#f8fafc', padding: '10px 12px', borderRadius: '12px', border: '1.5px solid #0052ff' }}>
+                <label className="input-label" style={{ color: '#0052ff', margin: '0 0 4px 0' }}>SELECT EXACT MOVE DATE</label>
+                <input
+                  type="date"
+                  min={new Date().toISOString().split('T')[0]}
+                  value={customExactDate}
+                  onChange={(e) => setCustomExactDate(e.target.value)}
+                  style={{ width: '100%', padding: '8px 10px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.92rem', fontWeight: 700, background: '#ffffff', color: '#09090b', boxSizing: 'border-box' }}
+                />
+              </div>
+            )}
 
             <div>
               <label className="input-label">TIME WINDOW</label>
@@ -468,7 +525,7 @@ export default function BookingWizard({ onBookingConfirmed }) {
         </div>
       )}
 
-      {/* Step 2: Inventory Size & AI Photo Scanner */}
+      {/* Step 2: Inventory Size, AI Photo Scanner & Custom Specialty Items */}
       {step === 2 && (
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
@@ -622,6 +679,89 @@ export default function BookingWizard({ onBookingConfirmed }) {
             ))}
           </div>
 
+          {/* Custom & Specialty Heavy Items */}
+          <div style={{ background: '#ffffff', borderRadius: '20px', border: '1px solid var(--border-subtle)', padding: '16px', marginBottom: '14px', boxShadow: 'var(--shadow-sm)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+              <div>
+                <h4 style={{ color: '#09090b', fontSize: '0.9rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Scale size={16} color="#0052ff" /> Specialty & Custom Cargo
+                </h4>
+                <p style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', margin: '2px 0 0 0' }}>
+                  Pianos, safes, gym equipment, pool tables, artwork
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsCustomItemModalOpen(true)}
+                style={{
+                  background: 'rgba(0, 82, 255, 0.1)',
+                  color: '#0052ff',
+                  border: '1px solid rgba(0, 82, 255, 0.25)',
+                  padding: '6px 10px',
+                  borderRadius: '10px',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                <Plus size={14} /> Add Item
+              </button>
+            </div>
+
+            {customHeavyItems.length === 0 ? (
+              <div 
+                onClick={() => setIsCustomItemModalOpen(true)}
+                style={{ background: '#f8fafc', border: '1.5px dashed #cbd5e1', borderRadius: '12px', padding: '14px', textAlign: 'center', cursor: 'pointer' }}
+              >
+                <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>
+                  Have a piano, safe, treadmill, or specialty cargo?
+                </p>
+                <span style={{ fontSize: '0.75rem', color: '#0052ff', fontWeight: 800 }}>
+                  + Tap to add specialty item
+                </span>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {customHeavyItems.map((cItem) => (
+                  <div 
+                    key={cItem.id} 
+                    style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f8fafc', border: '1px solid #e2e8f0', padding: '10px 12px', borderRadius: '12px' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '1.2rem' }}>{cItem.icon || '📦'}</span>
+                      <div>
+                        <strong style={{ fontSize: '0.85rem', color: '#09090b', display: 'block' }}>
+                          {cItem.name} {cItem.qty > 1 ? `(x${cItem.qty})` : ''}
+                        </strong>
+                        <span style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                          {cItem.weight} • {cItem.isFragile ? '🛡️ Fragile Care' : 'Standard'}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#0052ff' }}>
+                        +{formatCurrencyPrice(cItem.fee * (cItem.qty || 1), userCountryCode, false)}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setCustomHeavyItems(customHeavyItems.filter(x => x.id !== cItem.id))}
+                        style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer', padding: '4px' }}
+                        title="Remove Item"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* Add-on Services */}
           <div style={{ background: '#ffffff', borderRadius: '20px', border: '1px solid var(--border-subtle)', padding: '16px', marginBottom: '18px', boxShadow: 'var(--shadow-sm)' }}>
             <h4 style={{ color: '#09090b', fontSize: '0.9rem', fontWeight: 800, marginBottom: '12px' }}>
@@ -629,9 +769,9 @@ export default function BookingWizard({ onBookingConfirmed }) {
             </h4>
 
             {[
-              { key: 'packing', label: 'Full Packing & Bubble Wrap Service', price: '+$25' },
-              { key: 'disassembly', label: 'Furniture Disassembly & Reassembly', price: '+$40' },
-              { key: 'fragileInsurance', label: 'Zero-Deductible Fragile Protection', price: '+$20' },
+              { key: 'packing', label: 'Full Packing & Bubble Wrap Service', fee: 25 },
+              { key: 'disassembly', label: 'Furniture Disassembly & Reassembly', fee: 40 },
+              { key: 'fragileInsurance', label: 'Zero-Deductible Fragile Protection', fee: 20 },
             ].map((addon) => (
               <div
                 key={addon.key}
@@ -644,7 +784,7 @@ export default function BookingWizard({ onBookingConfirmed }) {
                   </div>
                   <span style={{ fontSize: '0.825rem', color: '#09090b', fontWeight: 600 }}>{addon.label}</span>
                 </div>
-                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--accent-blue)' }}>{addon.price}</span>
+                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: 'var(--accent-blue)' }}>+{formatCurrencyPrice(addon.fee, userCountryCode, false)}</span>
               </div>
             ))}
           </div>
@@ -668,7 +808,7 @@ export default function BookingWizard({ onBookingConfirmed }) {
               Select Vehicle & Crew
             </h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-              Tailored specifically for {moveSize}
+              Tailored specifically for {moveSize} {customHeavyItems.length > 0 ? `+ ${customHeavyItems.length} specialty items` : ''}
             </p>
           </div>
 
@@ -677,6 +817,7 @@ export default function BookingWizard({ onBookingConfirmed }) {
             setSelectedVehicle={setSelectedVehicle}
             helpersCount={helpersCount}
             setHelpersCount={setHelpersCount}
+            countryCode={userCountryCode}
           />
 
           {/* Stairs & Building Access */}
@@ -689,8 +830,8 @@ export default function BookingWizard({ onBookingConfirmed }) {
               onChange={(e) => setAccessType(e.target.value)}
             >
               <option value="Elevator Building">Elevator Building / Ground Floor (No Extra Fee)</option>
-              <option value="Stairs (2nd Floor)">Stairs (2nd Floor) (+$15)</option>
-              <option value="Stairs (3rd Floor+)">Stairs (3rd Floor+) (+$30)</option>
+              <option value="Stairs (2nd Floor)">Stairs (2nd Floor) (+{formatCurrencyPrice(15, userCountryCode, false)})</option>
+              <option value="Stairs (3rd Floor+)">Stairs (3rd Floor+) (+{formatCurrencyPrice(30, userCountryCode, false)})</option>
             </select>
           </div>
 
@@ -745,8 +886,14 @@ export default function BookingWizard({ onBookingConfirmed }) {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', color: 'var(--text-secondary)' }}>
                 <Clock size={14} />
-                <span>{moveDate} ({timeSlot})</span>
+                <span>{getEffectiveMoveDate()} ({timeSlot})</span>
               </div>
+              {customHeavyItems.length > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px', color: '#0052ff' }}>
+                  <Scale size={14} />
+                  <span><strong>Specialty Items:</strong> {customHeavyItems.map(x => x.name).join(', ')}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -778,35 +925,6 @@ export default function BookingWizard({ onBookingConfirmed }) {
             )}
           </div>
 
-          {/* Payment Method Selector */}
-          <div style={{ background: '#ffffff', borderRadius: '20px', border: '1px solid var(--border-subtle)', padding: '16px', marginBottom: '14px', boxShadow: 'var(--shadow-sm)' }}>
-            <h4 style={{ color: '#09090b', fontSize: '0.9rem', fontWeight: 800, marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <CreditCard size={16} color="var(--accent-blue)" /> Payment Method
-            </h4>
-            <div style={{ display: 'flex', gap: '8px' }}>
-              {['Apple Pay', 'Google Pay', 'Visa •••• 4921'].map((pm) => (
-                <button
-                  key={pm}
-                  onClick={() => setPaymentMethod(pm)}
-                  style={{
-                    flex: 1,
-                    background: paymentMethod === pm ? '#09090b' : 'var(--bg-input)',
-                    color: paymentMethod === pm ? '#ffffff' : 'var(--text-secondary)',
-                    border: 'none',
-                    padding: '10px 6px',
-                    borderRadius: '12px',
-                    fontSize: '0.775rem',
-                    fontWeight: 700,
-                    cursor: 'pointer',
-                    transition: 'all 0.15s ease',
-                  }}
-                >
-                  {pm}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Fare Itemized Breakdown */}
           <div style={{ background: '#ffffff', borderRadius: '20px', border: '1px solid var(--border-subtle)', padding: '16px', marginBottom: '18px', boxShadow: 'var(--shadow-sm)' }}>
             <h4 style={{ color: '#09090b', fontSize: '0.9rem', fontWeight: 800, marginBottom: '12px' }}>
@@ -815,55 +933,62 @@ export default function BookingWizard({ onBookingConfirmed }) {
 
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.825rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
               <span>Base Rate ({selectedVehicle.name})</span>
-              <span style={{ color: '#09090b', fontWeight: 600 }}>${baseFare.toFixed(2)}</span>
+              <span style={{ color: '#09090b', fontWeight: 600 }}>{formatCurrencyPrice(baseFare, userCountryCode)}</span>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.825rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-              <span>Distance ({calculatedDistance} mi @ ${selectedVehicle.perMile}/mi)</span>
-              <span style={{ color: '#09090b', fontWeight: 600 }}>${mileageFare.toFixed(2)}</span>
+              <span>Distance ({calculatedDistance} mi)</span>
+              <span style={{ color: '#09090b', fontWeight: 600 }}>{formatCurrencyPrice(mileageFare, userCountryCode)}</span>
             </div>
 
             {hasViaStop && (
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.825rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
                 <span>Intermediate Stop Fee</span>
-                <span style={{ color: '#09090b', fontWeight: 600 }}>+$25.00</span>
+                <span style={{ color: '#09090b', fontWeight: 600 }}>+{formatCurrencyPrice(25, userCountryCode)}</span>
               </div>
             )}
 
             {stairsFee > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.825rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
                 <span>Stair Handling ({accessType})</span>
-                <span style={{ color: '#09090b', fontWeight: 600 }}>+${stairsFee.toFixed(2)}</span>
+                <span style={{ color: '#09090b', fontWeight: 600 }}>+{formatCurrencyPrice(stairsFee, userCountryCode)}</span>
               </div>
             )}
 
             {extraMoverFee > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.825rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
                 <span>Movers Crew ({helpersCount} movers)</span>
-                <span style={{ color: '#09090b', fontWeight: 600 }}>${extraMoverFee.toFixed(2)}</span>
+                <span style={{ color: '#09090b', fontWeight: 600 }}>{formatCurrencyPrice(extraMoverFee, userCountryCode)}</span>
+              </div>
+            )}
+
+            {customItemsTotalFee > 0 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.825rem', color: '#0052ff', fontWeight: 700, marginBottom: '8px' }}>
+                <span>Specialty Cargo Handling ({customHeavyItems.length} items)</span>
+                <span>+{formatCurrencyPrice(customItemsTotalFee, userCountryCode)}</span>
               </div>
             )}
 
             {discountAmount > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.825rem', color: 'var(--accent-blue)', fontWeight: 800, marginBottom: '8px' }}>
                 <span>Promo Discount (SHIFTLY50)</span>
-                <span>-${discountAmount.toFixed(2)}</span>
+                <span>-{formatCurrencyPrice(discountAmount, userCountryCode)}</span>
               </div>
             )}
 
             <div style={{ borderTop: '1px solid var(--border-subtle)', marginTop: '12px', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <strong style={{ fontSize: '1rem', color: '#09090b', fontFamily: 'var(--font-heading)' }}>Grand Total</strong>
-                <p style={{ fontSize: '0.725rem', color: 'var(--text-secondary)' }}>Via {paymentMethod}</p>
+                <p style={{ fontSize: '0.725rem', color: 'var(--text-secondary)' }}>All Taxes & Insurance Included</p>
               </div>
               <span style={{ fontSize: '1.5rem', fontFamily: 'var(--font-heading)', fontWeight: 800, color: '#09090b', letterSpacing: '-0.02em' }}>
-                ${grandTotal}
+                {formatCurrencyPrice(grandTotal, userCountryCode)}
               </span>
             </div>
           </div>
 
           <button className="btn-blue" onClick={handleConfirm}>
-            Confirm & Dispatch Mover
+            Proceed to Payment ({formatCurrencyPrice(grandTotal, userCountryCode)}) →
           </button>
         </div>
       )}
@@ -875,13 +1000,23 @@ export default function BookingWizard({ onBookingConfirmed }) {
         />
       )}
 
+      {isCustomItemModalOpen && (
+        <CustomHeavyItemModal
+          countryCode={userCountryCode}
+          onAddItem={handleAddCustomHeavyItem}
+          onClose={() => setIsCustomItemModalOpen(false)}
+        />
+      )}
+
       {isCheckoutOpen && (
         <CheckoutModal
           bookingSummary={{
             pickup: pickupAddress,
             dropoff: dropoffAddress,
             vehicleTier: selectedVehicle,
-            totalPrice: grandTotal
+            totalPrice: grandTotal,
+            date: getEffectiveMoveDate(),
+            countryCode: userCountryCode
           }}
           onPaymentSuccess={handlePaymentSuccess}
           onClose={() => setIsCheckoutOpen(false)}
@@ -890,4 +1025,5 @@ export default function BookingWizard({ onBookingConfirmed }) {
     </div>
   );
 }
+
 

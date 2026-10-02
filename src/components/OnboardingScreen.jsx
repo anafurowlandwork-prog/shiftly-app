@@ -10,6 +10,7 @@ import PrivacyPolicyModal from './PrivacyPolicyModal';
 import TermsOfServiceModal from './TermsOfServiceModal';
 import { triggerHaptic } from '../utils/nativeBridge';
 import { sendRealOtp, verifyRealOtp } from '../services/backendService';
+import { getCurrencyForCountryCode } from '../utils/currencyUtils';
 
 const COUNTRIES = [
   { name: 'United States', code: '+1', flag: '🇺🇸', placeholder: '(555) 000-0000' },
@@ -32,7 +33,9 @@ const COUNTRIES = [
 export default function OnboardingScreen({ onCompleteAuth }) {
   const [authMethod, setAuthMethod] = useState('phone'); // 'phone' | 'email'
   const [onboardingStep, setOnboardingStep] = useState(1);
-  const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[1]); // Default to UK (+44) or US
+  const savedCountryCode = typeof window !== 'undefined' ? localStorage.getItem('shiftly_user_country_code') : null;
+  const initialCountry = COUNTRIES.find(c => c.code === savedCountryCode) || COUNTRIES[1]; // Default to UK (+44)
+  const [selectedCountry, setSelectedCountry] = useState(initialCountry);
   const [isCountryPickerOpen, setIsCountryPickerOpen] = useState(false);
   const [countrySearch, setCountrySearch] = useState('');
   
@@ -89,6 +92,9 @@ export default function OnboardingScreen({ onCompleteAuth }) {
   const handleCountrySelect = (country) => {
     triggerHaptic('light');
     setSelectedCountry(country);
+    try {
+      localStorage.setItem('shiftly_user_country_code', country.code);
+    } catch (e) {}
     setIsCountryPickerOpen(false);
     setCountrySearch('');
   };
@@ -100,9 +106,14 @@ export default function OnboardingScreen({ onCompleteAuth }) {
   };
 
   const handleContinue = async () => {
-    if (authMethod === 'phone' && phoneNumber.replace(/\D/g, '').length < 6) {
-      setErrorMessage('Please enter a valid phone number.');
-      return;
+    const countryConfig = getCurrencyForCountryCode(selectedCountry.code);
+    const rawDigits = phoneNumber.replace(/\D/g, '');
+
+    if (authMethod === 'phone') {
+      if (rawDigits.length < countryConfig.minPhoneDigits) {
+        setErrorMessage(`Please enter a valid phone number for ${selectedCountry.name} (minimum ${countryConfig.minPhoneDigits} digits, e.g. ${countryConfig.examplePhone}).`);
+        return;
+      }
     }
     if (authMethod === 'email' && (!emailAddress || !emailAddress.includes('@') || !emailAddress.includes('.'))) {
       setErrorMessage('Please enter a valid email address.');
@@ -112,6 +123,10 @@ export default function OnboardingScreen({ onCompleteAuth }) {
     setErrorMessage('');
     setOtpDigits(['', '', '', '', '', '']); // Clear all boxes for fresh user input
     const recipient = getCleanRecipient();
+
+    try {
+      localStorage.setItem('shiftly_user_country_code', selectedCountry.code);
+    } catch (e) {}
 
     try {
       const response = await sendRealOtp({ recipient, method: authMethod });
@@ -169,10 +184,24 @@ export default function OnboardingScreen({ onCompleteAuth }) {
     setOtpDigits(digits);
     setErrorMessage('');
     setIsVerifying(true);
+    const userPayload = {
+      authenticated: true,
+      method: authMethod,
+      recipient: getCleanRecipient(),
+      countryCode: selectedCountry.code,
+      countryName: selectedCountry.name,
+      phone: phoneNumber,
+      email: emailAddress,
+      loginTime: new Date().toISOString()
+    };
+    try {
+      localStorage.setItem('shiftly_auth_user', JSON.stringify(userPayload));
+      localStorage.setItem('shiftly_user_country_code', selectedCountry.code);
+    } catch (e) {}
     setTimeout(() => {
       setIsVerifying(false);
       triggerHaptic('success');
-      onCompleteAuth();
+      onCompleteAuth(userPayload);
     }, 400);
   };
 
@@ -191,7 +220,21 @@ export default function OnboardingScreen({ onCompleteAuth }) {
       await verifyRealOtp({ recipient, code: fullCode });
       setIsVerifying(false);
       triggerHaptic('success');
-      onCompleteAuth();
+      const userPayload = {
+        authenticated: true,
+        method: authMethod,
+        recipient: recipient,
+        countryCode: selectedCountry.code,
+        countryName: selectedCountry.name,
+        phone: phoneNumber,
+        email: emailAddress,
+        loginTime: new Date().toISOString()
+      };
+      try {
+        localStorage.setItem('shiftly_auth_user', JSON.stringify(userPayload));
+        localStorage.setItem('shiftly_user_country_code', selectedCountry.code);
+      } catch (e) {}
+      onCompleteAuth(userPayload);
     } catch (err) {
       setIsVerifying(false);
       setErrorMessage(err.message || 'Invalid verification code. Please check and try again.');
