@@ -3,30 +3,18 @@ import {
   User, ShieldCheck, Phone, Mail, CreditCard, 
   LogOut, ChevronRight, Sparkles, HelpCircle, FileText, 
   Lock, Globe, CheckCircle2, RotateCcw, Award, Bell,
-  Camera, Upload, Trash2, Image, X, Check, Edit2, Link2, Plus, CheckCircle
+  Camera, Upload, Trash2, X, Check
 } from 'lucide-react';
 import ShiftlyLogo from './ShiftlyLogo';
 import TermsOfServiceModal from './TermsOfServiceModal';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
-import { triggerHaptic, captureLivePhoto } from '../utils/nativeBridge';
-
-const AVATAR_PRESETS = [
-  { id: 'p1', name: 'Sarah', url: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=240&auto=format&fit=crop&q=80' },
-  { id: 'p2', name: 'David', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=240&auto=format&fit=crop&q=80' },
-  { id: 'p3', name: 'Maya', url: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=240&auto=format&fit=crop&q=80' },
-  { id: 'p4', name: 'Alex', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=240&auto=format&fit=crop&q=80' },
-  { id: 'p5', name: 'Chloe', url: 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=240&auto=format&fit=crop&q=80' },
-  { id: 'p6', name: 'Marcus', url: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?w=240&auto=format&fit=crop&q=80' }
-];
+import { triggerHaptic } from '../utils/nativeBridge';
 
 export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onUpdateUser }) {
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const [uploadToast, setUploadToast] = useState(null);
-  const [customUrlInput, setCustomUrlInput] = useState('');
-  const [isUrlMode, setIsUrlMode] = useState(false);
 
   // Synchronous, reactive state for profile picture
   const [currentPhoto, setCurrentPhoto] = useState(() => {
@@ -84,11 +72,8 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
       onUpdateUser(updatedUser);
     }
 
-    setIsPhotoModalOpen(false);
-    setIsUrlMode(false);
-    setCustomUrlInput('');
-    setUploadToast(photoUrl ? 'Profile photo updated! ✓' : 'Profile photo removed');
-    setTimeout(() => setUploadToast(null), 3500);
+    setUploadToast(photoUrl ? 'Profile photo uploaded! ✓' : 'Profile photo removed');
+    setTimeout(() => setUploadToast(null), 3000);
   };
 
   const handleFileInput = (e) => {
@@ -102,7 +87,7 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
         // Immediate UI update
         applyPhotoChange(rawDataUrl);
 
-        // Async canvas compression
+        // Client-side canvas compression for snappy storage
         try {
           const img = new window.Image();
           img.onload = () => {
@@ -132,23 +117,6 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
     };
     reader.readAsDataURL(file);
     e.target.value = '';
-  };
-
-  const handleNativeCamera = async () => {
-    try {
-      const photoPath = await captureLivePhoto();
-      if (photoPath) {
-        applyPhotoChange(photoPath);
-      }
-    } catch (e) {
-      console.warn('Native camera capture error:', e);
-    }
-  };
-
-  const handleApplyUrl = (e) => {
-    e.preventDefault();
-    if (!customUrlInput.trim()) return;
-    applyPhotoChange(customUrlInput.trim());
   };
 
   return (
@@ -192,7 +160,7 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
         </div>
       </div>
 
-      {/* Profile Card with Direct Interactive Overlay */}
+      {/* Profile Card with Person Silhouette Mockup & Direct Photo Upload */}
       <div style={{ 
         background: '#f8fafc', 
         borderRadius: '22px', 
@@ -204,12 +172,12 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
         gap: '16px',
         position: 'relative'
       }}>
-        {/* Direct Clickable Avatar Box */}
-        <div style={{ position: 'relative', flexShrink: 0, width: '70px', height: '70px' }}>
+        {/* Direct Clickable Avatar Circle with Silhouette Mockup */}
+        <div style={{ position: 'relative', flexShrink: 0, width: '72px', height: '72px' }}>
           {currentPhoto ? (
             <div style={{
-              width: '70px',
-              height: '70px',
+              width: '72px',
+              height: '72px',
               borderRadius: '50%',
               overflow: 'hidden',
               border: '2.5px solid #0052ff',
@@ -219,33 +187,43 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
             }}>
               <img 
                 src={currentPhoto} 
-                alt={displayUser} 
+                alt="Profile" 
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
             </div>
           ) : (
+            /* Person Silhouette Mockup */
             <div style={{
-              width: '70px',
-              height: '70px',
+              width: '72px',
+              height: '72px',
               borderRadius: '50%',
-              background: 'linear-gradient(135deg, #0052ff 0%, #0037b3 100%)',
-              color: '#ffffff',
+              background: 'linear-gradient(180deg, #e2e8f0 0%, #cbd5e1 100%)',
+              border: '2px solid #94a3b8',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              fontSize: '1.6rem',
-              fontWeight: 900,
-              boxShadow: '0 4px 14px rgba(0, 82, 255, 0.25)'
+              overflow: 'hidden',
+              boxShadow: '0 3px 10px rgba(0, 0, 0, 0.08)',
+              position: 'relative'
             }}>
-              {displayUser.charAt(0).toUpperCase()}
+              <svg 
+                viewBox="0 0 100 100" 
+                fill="#64748b" 
+                style={{ width: '64px', height: '64px', marginTop: '14px' }}
+              >
+                {/* Silhouette Head */}
+                <circle cx="50" cy="34" r="18" />
+                {/* Silhouette Shoulders/Body */}
+                <path d="M 18 86 C 18 64, 32 56, 50 56 C 68 56, 82 64, 82 86 Z" />
+              </svg>
             </div>
           )}
 
           {/* Camera Edit Badge */}
           <div style={{
             position: 'absolute',
-            bottom: 0,
-            right: 0,
+            bottom: -1,
+            right: -1,
             width: '26px',
             height: '26px',
             borderRadius: '50%',
@@ -261,12 +239,12 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
             <Camera size={13} />
           </div>
 
-          {/* Direct File Input Overlay */}
+          {/* Native File Input Overlay on Avatar */}
           <input
             type="file"
             accept="image/*"
             onChange={handleFileInput}
-            title="Upload profile picture"
+            title="Upload profile photo"
             style={{
               position: 'absolute',
               inset: 0,
@@ -279,7 +257,7 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
           />
         </div>
 
-        {/* User Info & Photo Action Buttons */}
+        {/* User Info & Direct Upload Actions */}
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             <h3 style={{ fontSize: '1.1rem', fontWeight: 800, color: '#09090b', margin: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -295,7 +273,7 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
           </span>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
-            {/* Direct Upload Button with Native Overlay */}
+            {/* Direct Upload Button with Native Invisible Input Overlay */}
             <div style={{ position: 'relative', display: 'inline-block' }}>
               <button
                 type="button"
@@ -303,14 +281,14 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
                   background: '#0052ff',
                   color: '#ffffff',
                   border: 'none',
-                  borderRadius: '8px',
-                  padding: '6px 12px',
-                  fontSize: '0.75rem',
+                  borderRadius: '10px',
+                  padding: '7px 14px',
+                  fontSize: '0.78rem',
                   fontWeight: 800,
                   display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '5px',
-                  boxShadow: '0 2px 6px rgba(0, 82, 255, 0.25)',
+                  gap: '6px',
+                  boxShadow: '0 3px 8px rgba(0, 82, 255, 0.28)',
                   cursor: 'pointer',
                   pointerEvents: 'none'
                 }}
@@ -336,92 +314,30 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
               />
             </div>
 
-            {/* Open Preset Avatars & More Modal */}
-            <button
-              type="button"
-              onClick={() => {
-                triggerHaptic('light');
-                setIsPhotoModalOpen(true);
-              }}
-              style={{
-                background: '#ffffff',
-                border: '1px solid #cbd5e1',
-                borderRadius: '8px',
-                padding: '5px 10px',
-                fontSize: '0.75rem',
-                fontWeight: 700,
-                color: '#475569',
-                cursor: 'pointer',
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '4px'
-              }}
-            >
-              <Sparkles size={13} color="#0052ff" />
-              <span>Avatars & Links</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Avatar Row */}
-      <div style={{ background: '#f8fafc', borderRadius: '18px', border: '1px solid #e2e8f0', padding: '12px 16px', marginBottom: '18px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-          <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-            ⚡ Instant Avatar Presets
-          </span>
-          <span style={{ fontSize: '0.7rem', color: '#0052ff', fontWeight: 700 }}>Tap to Select</span>
-        </div>
-
-        <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '4px' }}>
-          {AVATAR_PRESETS.map((preset) => {
-            const isSelected = currentPhoto === preset.url;
-            return (
-              <div 
-                key={preset.id}
-                onClick={() => applyPhotoChange(preset.url)}
+            {/* Remove Photo Action if custom photo is uploaded */}
+            {currentPhoto && (
+              <button
+                type="button"
+                onClick={() => applyPhotoChange(null)}
                 style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '4px',
+                  background: '#fef2f2',
+                  border: '1px solid #fecaca',
+                  borderRadius: '10px',
+                  padding: '6px 10px',
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  color: '#ef4444',
                   cursor: 'pointer',
-                  flexShrink: 0
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px'
                 }}
               >
-                <div style={{
-                  width: '46px',
-                  height: '46px',
-                  borderRadius: '50%',
-                  overflow: 'hidden',
-                  border: isSelected ? '2.5px solid #0052ff' : '1.5px solid #cbd5e1',
-                  boxShadow: isSelected ? '0 0 0 2px rgba(0,82,255,0.3)' : 'none',
-                  position: 'relative'
-                }}>
-                  <img 
-                    src={preset.url} 
-                    alt={preset.name} 
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
-                  />
-                  {isSelected && (
-                    <div style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background: 'rgba(0, 82, 255, 0.3)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <Check size={16} color="#ffffff" strokeWidth={3} />
-                    </div>
-                  )}
-                </div>
-                <span style={{ fontSize: '0.65rem', fontWeight: isSelected ? 800 : 600, color: isSelected ? '#0052ff' : '#64748b' }}>
-                  {preset.name}
-                </span>
-              </div>
-            );
-          })}
+                <Trash2 size={12} />
+                <span>Remove</span>
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -559,344 +475,6 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
       <p style={{ textAlign: 'center', fontSize: '0.72rem', color: '#a1a1aa', marginTop: '14px' }}>
         Shiftly App v2.4.0 • Build 2026.10
       </p>
-
-      {/* Profile Photo Customizer Modal */}
-      {isPhotoModalOpen && (
-        <div 
-          className="modal-overlay"
-          style={{
-            position: 'fixed',
-            inset: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.75)',
-            backdropFilter: 'blur(8px)',
-            zIndex: 99999,
-            display: 'flex',
-            alignItems: 'flex-end',
-            justifyContent: 'center',
-            padding: 0
-          }}
-          onClick={() => setIsPhotoModalOpen(false)}
-        >
-          <div 
-            style={{
-              width: '100%',
-              maxWidth: '430px',
-              background: '#ffffff',
-              borderTopLeftRadius: '28px',
-              borderTopRightRadius: '28px',
-              padding: '24px 20px 34px 20px',
-              boxShadow: '0 -10px 40px rgba(0,0,0,0.3)',
-              animation: 'slideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
-              boxSizing: 'border-box',
-              maxHeight: '85vh',
-              overflowY: 'auto'
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '18px' }}>
-              <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#09090b', margin: 0 }}>
-                  Profile Picture
-                </h3>
-                <p style={{ fontSize: '0.8rem', color: '#71717a', margin: '3px 0 0 0' }}>
-                  Upload from device, take photo, or choose an avatar
-                </p>
-              </div>
-              <button 
-                type="button"
-                onClick={() => setIsPhotoModalOpen(false)}
-                style={{
-                  width: '32px',
-                  height: '32px',
-                  borderRadius: '50%',
-                  background: '#f4f4f5',
-                  border: 'none',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer'
-                }}
-              >
-                <X size={16} color="#71717a" />
-              </button>
-            </div>
-
-            {/* Current Preview */}
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-              <div style={{ position: 'relative' }}>
-                {currentPhoto ? (
-                  <img 
-                    src={currentPhoto} 
-                    alt="Current Avatar" 
-                    style={{
-                      width: '84px',
-                      height: '84px',
-                      borderRadius: '50%',
-                      objectFit: 'cover',
-                      border: '3px solid #0052ff',
-                      boxShadow: '0 6px 20px rgba(0, 82, 255, 0.25)'
-                    }}
-                  />
-                ) : (
-                  <div style={{
-                    width: '84px',
-                    height: '84px',
-                    borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #0052ff 0%, #0037b3 100%)',
-                    color: '#ffffff',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '2rem',
-                    fontWeight: 900,
-                    boxShadow: '0 6px 20px rgba(0, 82, 255, 0.25)'
-                  }}>
-                    {displayUser.charAt(0).toUpperCase()}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Action Grid: Upload / Camera / URL / Remove */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
-              {/* Device Upload Direct Overlay */}
-              <div style={{ position: 'relative' }}>
-                <button
-                  type="button"
-                  style={{
-                    width: '100%',
-                    padding: '14px 10px',
-                    borderRadius: '16px',
-                    background: '#0052ff',
-                    color: '#ffffff',
-                    border: 'none',
-                    fontWeight: 800,
-                    fontSize: '0.85rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    boxShadow: '0 4px 14px rgba(0, 82, 255, 0.3)',
-                    cursor: 'pointer',
-                    pointerEvents: 'none'
-                  }}
-                >
-                  <Upload size={16} />
-                  <span>Upload Photo</span>
-                </button>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileInput}
-                  title="Select photo from device"
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    opacity: 0,
-                    width: '100%',
-                    height: '100%',
-                    cursor: 'pointer',
-                    zIndex: 10
-                  }}
-                />
-              </div>
-
-              {/* Camera Capture Direct Overlay */}
-              <div style={{ position: 'relative' }}>
-                <button
-                  type="button"
-                  onClick={handleNativeCamera}
-                  style={{
-                    width: '100%',
-                    padding: '14px 10px',
-                    borderRadius: '16px',
-                    background: '#f1f5f9',
-                    color: '#0f172a',
-                    border: '1px solid #cbd5e1',
-                    fontWeight: 800,
-                    fontSize: '0.85rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <Camera size={16} color="#0052ff" />
-                  <span>Take Photo</span>
-                </button>
-                <input
-                  type="file"
-                  accept="image/*"
-                  capture="user"
-                  onChange={handleFileInput}
-                  title="Take photo"
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    opacity: 0,
-                    width: '100%',
-                    height: '100%',
-                    cursor: 'pointer',
-                    zIndex: 10
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Secondary Row: Paste Image URL & Remove */}
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-              <button
-                type="button"
-                onClick={() => setIsUrlMode(!isUrlMode)}
-                style={{
-                  flex: 1,
-                  padding: '10px 12px',
-                  borderRadius: '12px',
-                  background: isUrlMode ? '#eff6ff' : '#f8fafc',
-                  border: isUrlMode ? '1.5px solid #0052ff' : '1px solid #e2e8f0',
-                  color: isUrlMode ? '#0052ff' : '#475569',
-                  fontSize: '0.78rem',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '6px',
-                  cursor: 'pointer'
-                }}
-              >
-                <Link2 size={14} />
-                <span>{isUrlMode ? 'Hide Image Link' : 'Paste Image Link'}</span>
-              </button>
-
-              {currentPhoto && (
-                <button
-                  type="button"
-                  onClick={() => applyPhotoChange(null)}
-                  style={{
-                    padding: '10px 14px',
-                    borderRadius: '12px',
-                    background: '#fef2f2',
-                    border: '1px solid #fecaca',
-                    color: '#ef4444',
-                    fontSize: '0.78rem',
-                    fontWeight: 700,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <Trash2 size={14} />
-                  <span>Remove</span>
-                </button>
-              )}
-            </div>
-
-            {/* Optional URL Input Form */}
-            {isUrlMode && (
-              <form onSubmit={handleApplyUrl} style={{ marginBottom: '18px', display: 'flex', gap: '8px' }}>
-                <input 
-                  type="url"
-                  placeholder="https://example.com/my-photo.jpg"
-                  value={customUrlInput}
-                  onChange={(e) => setCustomUrlInput(e.target.value)}
-                  style={{
-                    flex: 1,
-                    padding: '10px 14px',
-                    borderRadius: '12px',
-                    border: '1px solid #cbd5e1',
-                    fontSize: '0.82rem',
-                    outline: 'none'
-                  }}
-                />
-                <button
-                  type="submit"
-                  disabled={!customUrlInput.trim()}
-                  style={{
-                    padding: '10px 16px',
-                    borderRadius: '12px',
-                    background: customUrlInput.trim() ? '#0052ff' : '#cbd5e1',
-                    color: '#ffffff',
-                    border: 'none',
-                    fontWeight: 800,
-                    fontSize: '0.82rem',
-                    cursor: customUrlInput.trim() ? 'pointer' : 'default'
-                  }}
-                >
-                  Apply
-                </button>
-              </form>
-            )}
-
-            {/* Avatar Style Presets Gallery */}
-            <div>
-              <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '10px' }}>
-                Or Select an Avatar Style
-              </span>
-
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-                {AVATAR_PRESETS.map((preset) => {
-                  const isSelected = currentPhoto === preset.url;
-                  return (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() => applyPhotoChange(preset.url)}
-                      style={{
-                        padding: '10px 8px',
-                        borderRadius: '16px',
-                        background: isSelected ? '#eff6ff' : '#f8fafc',
-                        border: isSelected ? '2px solid #0052ff' : '1px solid #e2e8f0',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        gap: '6px',
-                        transition: 'all 0.15s ease',
-                        position: 'relative'
-                      }}
-                    >
-                      <img 
-                        src={preset.url} 
-                        alt={preset.name} 
-                        style={{
-                          width: '48px',
-                          height: '48px',
-                          borderRadius: '50%',
-                          objectFit: 'cover'
-                        }}
-                      />
-                      <span style={{ fontSize: '0.68rem', fontWeight: 700, color: isSelected ? '#0052ff' : '#334155', textAlign: 'center' }}>
-                        {preset.name}
-                      </span>
-                      {isSelected && (
-                        <div style={{
-                          position: 'absolute',
-                          top: '6px',
-                          right: '6px',
-                          width: '18px',
-                          height: '18px',
-                          borderRadius: '50%',
-                          background: '#0052ff',
-                          color: '#ffffff',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}>
-                          <Check size={12} />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Logout Confirmation Modal Dialog */}
       {showLogoutConfirm && (
