@@ -264,6 +264,17 @@ export default function CheckoutModal({
                 <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Move Fare ({bookingSummary?.vehicleTier?.name || 'Standard Truck'})</span>
                 <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#09090b' }}>{formattedBaseFare}</span>
               </div>
+              
+              {/* Shiftly Shield line item */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                <span style={{ fontSize: '0.85rem', color: '#0052ff', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                  <ShieldCheck size={14} /> {bookingSummary?.shieldDetails?.name || 'Shiftly Shield™ Comprehensive'}
+                </span>
+                <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#16a34a' }}>
+                  {bookingSummary?.shieldDetails?.feeUsd === 0 ? 'FREE (Included)' : 'Covered (Zero Deductible)'}
+                </span>
+              </div>
+
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                 <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600 }}>Driver Crew Tip</span>
                 <span style={{ fontSize: '0.95rem', fontWeight: 700, color: '#0052ff' }}>+{formattedTip}</span>

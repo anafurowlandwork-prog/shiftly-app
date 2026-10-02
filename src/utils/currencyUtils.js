@@ -198,3 +198,58 @@ STATUS:CONFIRMED
 END:VEVENT
 END:VCALENDAR`;
 }
+
+/**
+ * Shiftly Shield™ Cargo Insurance & Protection Tier Definitions
+ */
+export const SHIELD_TIERS = {
+  BASIC: {
+    id: 'BASIC',
+    name: 'Basic Carrier Liability',
+    tag: 'Included Free',
+    feeUsd: 0,
+    coverageLimitUsd: 10000,
+    deductibleUsd: 250,
+    resolutionTime: '5-7 business days',
+    features: [
+      'Standard carrier transit protection ($0.60/lb)',
+      'Basic damaged item claims assistance',
+      '$250 Standard Deductible'
+    ]
+  },
+  COMPREHENSIVE: {
+    id: 'COMPREHENSIVE',
+    name: 'Shiftly Shield™ Comprehensive',
+    tag: 'Most Popular (Recommended)',
+    feeUsd: 29,
+    coverageLimitUsd: 50000,
+    deductibleUsd: 0,
+    resolutionTime: '48-hour priority payout',
+    recommended: true,
+    features: [
+      'Full Replacement Value Protection (up to $50k)',
+      '$0 Zero Deductible Guaranteed',
+      'Accidental scratches, dings, glass & TV panel coverage',
+      '48-Hour Rapid Claim Concierge with direct bank transfer',
+      'Certified high-density furniture blanket wrapping'
+    ]
+  },
+  ULTRA: {
+    id: 'ULTRA',
+    name: 'Shiftly Shield™ Ultra & Fine Art',
+    tag: 'High-Value & Luxury',
+    feeUsd: 59,
+    coverageLimitUsd: 100000,
+    deductibleUsd: 0,
+    resolutionTime: '24-hour express resolution',
+    features: [
+      'Comprehensive High-Value Protection (up to $100k)',
+      '$0 Zero Deductible Guaranteed',
+      'Pianos, fine art, antiques & designer furniture coverage',
+      'Custom wooden crating & moisture-barrier sealing',
+      '24-Hour dedicated senior claims concierge manager',
+      'Worldwide underwriter backing certificate'
+    ]
+  }
+};
+

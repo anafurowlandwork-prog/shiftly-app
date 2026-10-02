@@ -4,6 +4,7 @@ import VehicleSelector, { VEHICLE_TIERS } from './VehicleSelector';
 import AIItemScannerModal from './AIItemScannerModal';
 import CustomHeavyItemModal from './CustomHeavyItemModal';
 import CheckoutModal from './CheckoutModal';
+import ShiftlyShieldModal, { SHIELD_TIERS } from './ShiftlyShieldModal';
 import { createMoveBooking } from '../services/backendService';
 import { searchAddressSuggestions, geocodeAddress, calculateDistanceMiles } from '../utils/geoUtils';
 import { formatCurrencyPrice, getCurrencyForCountryCode } from '../utils/currencyUtils';
@@ -49,6 +50,8 @@ export default function BookingWizard({ onBookingConfirmed }) {
 
   const [isAIScannerOpen, setIsAIScannerOpen] = useState(false);
   const [isCustomItemModalOpen, setIsCustomItemModalOpen] = useState(false);
+  const [isShieldModalOpen, setIsShieldModalOpen] = useState(false);
+  const [selectedShieldTier, setSelectedShieldTier] = useState('COMPREHENSIVE'); // 'BASIC' | 'COMPREHENSIVE' | 'ULTRA'
 
   // Standard Items
   const [items, setItems] = useState({
@@ -123,14 +126,16 @@ export default function BookingWizard({ onBookingConfirmed }) {
     }
   };
 
+  const shieldConfig = SHIELD_TIERS[selectedShieldTier] || SHIELD_TIERS.COMPREHENSIVE;
+  const shieldFee = shieldConfig.feeUsd;
   const customItemsTotalFee = customHeavyItems.reduce((acc, it) => acc + (it.fee * (it.qty || 1)), 0);
   const baseFare = selectedVehicle.basePrice;
   const mileageFare = selectedVehicle.perMile * calculatedDistance;
   const extraMoverFee = helpersCount > 1 ? (helpersCount - 1) * 35 : 0;
   const viaStopFee = hasViaStop ? 25 : 0;
   const stairsFee = accessType === 'Stairs (3rd Floor+)' ? 30 : accessType === 'Stairs (2nd Floor)' ? 15 : 0;
-  const addOnsTotal = (addOns.packing ? 25 : 0) + (addOns.disassembly ? 40 : 0) + (addOns.fragileInsurance ? 20 : 0) + customItemsTotalFee;
-  const rawTotal = baseFare + mileageFare + extraMoverFee + viaStopFee + stairsFee + addOnsTotal;
+  const addOnsTotal = (addOns.packing ? 25 : 0) + (addOns.disassembly ? 40 : 0) + customItemsTotalFee;
+  const rawTotal = baseFare + mileageFare + extraMoverFee + viaStopFee + stairsFee + addOnsTotal + shieldFee;
   const grandTotal = Math.max(0, rawTotal - discountAmount).toFixed(2);
 
   const getEffectiveMoveDate = () => {
@@ -168,6 +173,9 @@ export default function BookingWizard({ onBookingConfirmed }) {
       countryCode: userCountryCode,
       currencyCode: getCurrencyForCountryCode(userCountryCode).currencyCode,
       currencySymbol: getCurrencyForCountryCode(userCountryCode).symbol,
+      shieldTier: selectedShieldTier,
+      shieldDetails: shieldConfig,
+      shieldCertificate: `SHIELD-${shieldConfig.coverageLimitUsd / 1000}K-${Math.floor(1000 + Math.random() * 9000)}`,
       paymentMethod: paidDetails?.paymentMethod || paymentMethod,
       discount: discountAmount,
       total: paidDetails?.totalPrice || grandTotal,
@@ -897,6 +905,57 @@ export default function BookingWizard({ onBookingConfirmed }) {
             </div>
           </div>
 
+          {/* Shiftly Shield™ Protection Tier Card */}
+          <div style={{ background: '#ffffff', borderRadius: '20px', border: '1.5px solid #0052ff', padding: '16px', marginBottom: '14px', boxShadow: '0 4px 16px rgba(0, 82, 255, 0.08)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'rgba(0, 82, 255, 0.1)', color: '#0052ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <ShieldCheck size={18} />
+                </div>
+                <div>
+                  <h4 style={{ color: '#09090b', fontWeight: 800, fontSize: '0.95rem', margin: 0 }}>
+                    Shiftly Shield™
+                  </h4>
+                  <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 700 }}>
+                    {shieldConfig.name}
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsShieldModalOpen(true)}
+                style={{
+                  background: 'rgba(0, 82, 255, 0.08)',
+                  color: '#0052ff',
+                  border: 'none',
+                  padding: '6px 10px',
+                  borderRadius: '8px',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  cursor: 'pointer'
+                }}
+              >
+                Change Tier →
+              </button>
+            </div>
+
+            <div style={{ background: '#f8fafc', borderRadius: '10px', padding: '10px 12px', fontSize: '0.75rem', color: '#334155' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span>Coverage Limit:</span>
+                <strong style={{ color: '#09090b' }}>{formatCurrencyPrice(shieldConfig.coverageLimitUsd, userCountryCode, false)}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                <span>Deductible:</span>
+                <strong style={{ color: '#16a34a' }}>{shieldConfig.deductibleUsd === 0 ? '$0 Zero Deductible' : '$250 Deductible'}</strong>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Claim Resolution:</span>
+                <strong style={{ color: '#0052ff' }}>{shieldConfig.resolutionTime}</strong>
+              </div>
+            </div>
+          </div>
+
           {/* Promo Code Input */}
           <div style={{ background: '#ffffff', borderRadius: '20px', border: '1px solid var(--border-subtle)', padding: '16px', marginBottom: '14px', boxShadow: 'var(--shadow-sm)' }}>
             <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -969,6 +1028,12 @@ export default function BookingWizard({ onBookingConfirmed }) {
               </div>
             )}
 
+            {/* Shiftly Shield Protection Plan Breakdown Item */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.825rem', color: '#0052ff', fontWeight: 700, marginBottom: '8px' }}>
+              <span>Shiftly Shield™ ({shieldConfig.name.split(' ')[2] || 'Protection'})</span>
+              <span>{shieldFee === 0 ? 'FREE (Included)' : `+${formatCurrencyPrice(shieldFee, userCountryCode)}`}</span>
+            </div>
+
             {discountAmount > 0 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.825rem', color: 'var(--accent-blue)', fontWeight: 800, marginBottom: '8px' }}>
                 <span>Promo Discount (SHIFTLY50)</span>
@@ -979,7 +1044,7 @@ export default function BookingWizard({ onBookingConfirmed }) {
             <div style={{ borderTop: '1px solid var(--border-subtle)', marginTop: '12px', paddingTop: '12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div>
                 <strong style={{ fontSize: '1rem', color: '#09090b', fontFamily: 'var(--font-heading)' }}>Grand Total</strong>
-                <p style={{ fontSize: '0.725rem', color: 'var(--text-secondary)' }}>All Taxes & Insurance Included</p>
+                <p style={{ fontSize: '0.725rem', color: 'var(--text-secondary)' }}>All Taxes & Shiftly Shield Included</p>
               </div>
               <span style={{ fontSize: '1.5rem', fontFamily: 'var(--font-heading)', fontWeight: 800, color: '#09090b', letterSpacing: '-0.02em' }}>
                 {formatCurrencyPrice(grandTotal, userCountryCode)}
@@ -1008,6 +1073,15 @@ export default function BookingWizard({ onBookingConfirmed }) {
         />
       )}
 
+      {isShieldModalOpen && (
+        <ShiftlyShieldModal
+          selectedTier={selectedShieldTier}
+          onSelectTier={(tierId) => setSelectedShieldTier(tierId)}
+          onClose={() => setIsShieldModalOpen(false)}
+          countryCode={userCountryCode}
+        />
+      )}
+
       {isCheckoutOpen && (
         <CheckoutModal
           bookingSummary={{
@@ -1016,7 +1090,9 @@ export default function BookingWizard({ onBookingConfirmed }) {
             vehicleTier: selectedVehicle,
             totalPrice: grandTotal,
             date: getEffectiveMoveDate(),
-            countryCode: userCountryCode
+            countryCode: userCountryCode,
+            shieldTier: selectedShieldTier,
+            shieldDetails: shieldConfig
           }}
           onPaymentSuccess={handlePaymentSuccess}
           onClose={() => setIsCheckoutOpen(false)}

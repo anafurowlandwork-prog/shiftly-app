@@ -221,6 +221,19 @@ async function runTestSuite() {
     assert('Proof of Delivery validation', false, err.message);
   }
 
+  // 8. TEST: Shiftly Shield™ Cargo Insurance & Protection Tiers
+  console.log('\n--- 8. Testing Shiftly Shield™ Cargo Protection ---');
+  try {
+    const { SHIELD_TIERS } = await import('./src/utils/currencyUtils.js');
+    
+    assert('Contains Basic, Comprehensive, and Ultra Shield Tiers', !!SHIELD_TIERS.BASIC && !!SHIELD_TIERS.COMPREHENSIVE && !!SHIELD_TIERS.ULTRA);
+    assert('Basic Shield tier is free with $10,000 coverage', SHIELD_TIERS.BASIC.feeUsd === 0 && SHIELD_TIERS.BASIC.coverageLimitUsd === 10000);
+    assert('Comprehensive Shield tier has $0 zero deductible and $50,000 coverage', SHIELD_TIERS.COMPREHENSIVE.deductibleUsd === 0 && SHIELD_TIERS.COMPREHENSIVE.coverageLimitUsd === 50000);
+    assert('Ultra Shield tier covers high-value art/pianos up to $100,000', SHIELD_TIERS.ULTRA.coverageLimitUsd === 100000 && SHIELD_TIERS.ULTRA.deductibleUsd === 0);
+  } catch (err) {
+    assert('Shiftly Shield validation', false, err.message);
+  }
+
   console.log('\n====================================================');
   console.log(`📊 TEST SUITE COMPLETE: ${passed} PASSED, ${failed} FAILED`);
   console.log('====================================================');
@@ -231,4 +244,5 @@ async function runTestSuite() {
 }
 
 runTestSuite();
+
 
