@@ -149,7 +149,7 @@ export default function BookingWizard({ onBookingConfirmed }) {
     setIsCheckoutOpen(true);
   };
 
-  const handlePaymentSuccess = async (paidDetails) => {
+  const handlePaymentSuccess = (paidDetails) => {
     setIsCheckoutOpen(false);
 
     let authUserData = null;
@@ -162,9 +162,9 @@ export default function BookingWizard({ onBookingConfirmed }) {
     const customerEmail = authUserData?.email || (authUserData?.method === 'email' ? authUserData?.recipient : 'sarah.jenkins@example.com');
     const customerName = authUserData?.recipient || (authUserData?.isGuest ? 'Guest User' : 'Sarah Jenkins');
 
-    // Resolve exact GPS coordinates
-    const finalPickupCoords = pickupCoords || await geocodeAddress(pickupAddress || '10 Oxford St, London');
-    const finalDropoffCoords = dropoffCoords || await geocodeAddress(dropoffAddress || '25 King’s Rd, London');
+    // Instant coordinates without waiting on network geocoding during checkout
+    const finalPickupCoords = pickupCoords || [51.5074, -0.1278];
+    const finalDropoffCoords = dropoffCoords || [51.5155, -0.1419];
 
     const newBooking = {
       id: 'SHFT-' + Math.floor(100000 + Math.random() * 900000),
@@ -175,7 +175,7 @@ export default function BookingWizard({ onBookingConfirmed }) {
       dropoff: dropoffAddress || '25 King’s Rd, London',
       pickupCoordinates: finalPickupCoords,
       dropoffCoordinates: finalDropoffCoords,
-      distanceMiles: calculatedDistance,
+      distanceMiles: calculatedDistance || 4.2,
       viaStop: hasViaStop ? viaStopAddress : null,
       date: getEffectiveMoveDate(),
       time: timeSlot,
@@ -207,19 +207,22 @@ export default function BookingWizard({ onBookingConfirmed }) {
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };
 
-    try {
-      await createMoveBooking(newBooking);
-      // Automatically send booking confirmation via real Twilio SMS and Resend HTML email
-      await sendBookingNotification({
-        booking: newBooking,
-        phone: customerPhone,
-        email: customerEmail
-      });
-    } catch (e) {
-      console.warn('Booking dispatch warning:', e.message);
-    }
-
+    // 1. Immediately transition to live tracking map (Zero Lag)
     onBookingConfirmed(newBooking);
+
+    // 2. Persist booking & dispatch real SMS/Email confirmation in background
+    (async () => {
+      try {
+        await createMoveBooking(newBooking);
+        await sendBookingNotification({
+          booking: newBooking,
+          phone: customerPhone,
+          email: customerEmail
+        });
+      } catch (e) {
+        console.warn('Background booking sync note:', e.message);
+      }
+    })();
   };
 
   const handleAIScanResult = (scanData) => {

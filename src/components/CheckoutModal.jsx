@@ -95,8 +95,8 @@ export default function CheckoutModal({
             paymentStatus: 'PAID'
           });
         }
-      }, 1500);
-    }, 1600);
+      }, 350);
+    }, 450);
   };
 
   return (
