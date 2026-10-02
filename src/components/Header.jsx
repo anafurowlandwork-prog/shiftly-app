@@ -17,7 +17,7 @@ export default function Header({ setActiveTab, toggleMode, onToggleMode, authUse
         style={{ cursor: 'pointer', display: 'flex', alignItems: 'center' }}
         title="Shiftly Home"
       >
-        <ShiftlyLogo size={70} variant="badge" />
+        <ShiftlyLogo size={100} variant="badge" />
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

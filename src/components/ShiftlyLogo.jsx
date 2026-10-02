@@ -5,7 +5,7 @@ import React from 'react';
  * Featuring the official 3D extruded Shiftly brandmark in HD.
  */
 export default function ShiftlyLogo({ 
-  size = 70, 
+  size = 100, 
   variant = 'badge', 
   theme = 'light',
   className = '',
@@ -17,12 +17,12 @@ export default function ShiftlyLogo({
       alt="Shiftly Official Logo" 
       style={{ 
         width: `${size}px`, 
-        height: `${Math.round(size * 0.88)}px`, 
-        borderRadius: `${Math.max(12, Math.round(size * 0.20))}px`,
+        height: `${Math.round(size * 0.78)}px`, 
+        borderRadius: `${Math.max(12, Math.round(size * 0.16))}px`,
         objectFit: 'cover',
         display: 'block',
         flexShrink: 0,
-        boxShadow: '0 8px 24px rgba(0, 82, 255, 0.38), 0 3px 10px rgba(0, 0, 0, 0.16)',
+        boxShadow: '0 10px 28px rgba(0, 82, 255, 0.42), 0 3px 10px rgba(0, 0, 0, 0.18)',
         border: '2.5px solid #ffffff',
         transition: 'transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.18s ease'
       }} 
