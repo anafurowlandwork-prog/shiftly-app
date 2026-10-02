@@ -5,7 +5,7 @@ import React from 'react';
  * Featuring the official 3D extruded Shiftly brandmark in HD.
  */
 export default function ShiftlyLogo({ 
-  size = 52, 
+  size = 70, 
   variant = 'badge', 
   theme = 'light',
   className = '',
@@ -17,13 +17,13 @@ export default function ShiftlyLogo({
       alt="Shiftly Official Logo" 
       style={{ 
         width: `${size}px`, 
-        height: `${size * 0.90}px`, 
-        borderRadius: `${Math.max(10, Math.round(size * 0.22))}px`,
+        height: `${Math.round(size * 0.88)}px`, 
+        borderRadius: `${Math.max(12, Math.round(size * 0.20))}px`,
         objectFit: 'cover',
         display: 'block',
         flexShrink: 0,
-        boxShadow: '0 6px 20px rgba(0, 82, 255, 0.35), 0 2px 8px rgba(0, 0, 0, 0.14)',
-        border: '2px solid #ffffff',
+        boxShadow: '0 8px 24px rgba(0, 82, 255, 0.38), 0 3px 10px rgba(0, 0, 0, 0.16)',
+        border: '2.5px solid #ffffff',
         transition: 'transform 0.18s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.18s ease'
       }} 
     />
@@ -71,7 +71,7 @@ export default function ShiftlyLogo({
       style={{ 
         display: 'inline-flex', 
         alignItems: 'center', 
-        gap: '10px', 
+        gap: '12px', 
         ...style 
       }}
     >
@@ -79,7 +79,7 @@ export default function ShiftlyLogo({
       <span 
         className="lemfi-3d-title-dark" 
         style={{ 
-          fontSize: `${Math.max(20, size * 0.58)}px`,
+          fontSize: `${Math.max(20, size * 0.52)}px`,
           letterSpacing: '-0.03em',
           fontFamily: 'var(--font-heading)',
           color: '#09090b',
