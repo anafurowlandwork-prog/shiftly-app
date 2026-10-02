@@ -149,23 +149,41 @@ export default function App() {
     setActiveTab('track');
   };
 
-  const handleDriverStatusSync = (newStatus) => {
+  const handleDriverStatusSync = (newStatus, podData) => {
     setDriverSyncedStatus(newStatus);
     if (currentBooking) {
       setCurrentBooking((prev) => {
-        const updated = { ...prev, status: newStatus };
+        const updated = { 
+          ...prev, 
+          status: newStatus,
+          podCertificate: podData || prev?.podCertificate 
+        };
         try {
           localStorage.setItem('shiftly_current_booking', JSON.stringify(updated));
         } catch (e) {}
         return updated;
       });
+
+      // Sync into user bookings history
+      setUserBookings((prevList) => {
+        const updatedList = prevList.map((b) => 
+          b.id === currentBooking.id 
+            ? { ...b, status: newStatus, podCertificate: podData || b.podCertificate } 
+            : b
+        );
+        try {
+          localStorage.setItem('shiftly_user_bookings', JSON.stringify(updatedList));
+        } catch (e) {}
+        return updatedList;
+      });
     }
+
     const statusTitles = {
       driver_en_route: 'Driver En Route to Pickup',
       arrived_pickup: 'Driver Arrived at Pickup!',
       cargo_loaded: 'Cargo Verified & Secured',
       in_transit: 'Truck in Transit to Destination',
-      completed: 'Move Completed! Payout Deposited'
+      completed: 'Move Completed! Proof of Delivery Signed ✓'
     };
     if (statusTitles[newStatus]) {
       setActiveToast({

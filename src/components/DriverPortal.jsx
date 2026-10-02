@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { 
   Truck, Navigation, DollarSign, Star, ShieldCheck, CheckCircle2, 
   MapPin, Phone, MessageSquare, ArrowRight, AlertCircle, Play, 
-  Pause, RefreshCw, ChevronRight, Package, Clock, User
+  Pause, RefreshCw, ChevronRight, Package, Clock, User, FileText 
 } from 'lucide-react';
 import ShiftlyLogo from './ShiftlyLogo';
 import DriverProfileModal from './DriverProfileModal';
 import DriverChatSheet from './DriverChatSheet';
 import DriverEarningsModal from './DriverEarningsModal';
+import ProofOfDeliveryModal from './ProofOfDeliveryModal';
+import ProofOfDeliveryViewer from './ProofOfDeliveryViewer';
 
 export default function DriverPortal({ 
   currentBooking,
@@ -20,6 +22,17 @@ export default function DriverPortal({
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isEarningsOpen, setIsEarningsOpen] = useState(false);
+  const [isPodModalOpen, setIsPodModalOpen] = useState(false);
+  const [isViewPodOpen, setIsViewPodOpen] = useState(false);
+  const [podCertificate, setPodCertificate] = useState(() => {
+    try {
+      const stored = localStorage.getItem('shiftly_last_pod_certificate');
+      return stored ? JSON.parse(stored) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
   const [activeJob, setActiveJob] = useState(null);
   const [incomingOffer, setIncomingOffer] = useState(null);
   const [offerCountdown, setOfferCountdown] = useState(15);
@@ -114,10 +127,24 @@ export default function DriverPortal({
       setJobStep(3); // In Transit
       if (onSyncStatusWithCustomer) onSyncStatusWithCustomer('in_transit');
     } else if (jobStep === 3) {
-      setJobStep(4); // Delivered
-      setTodayEarnings((prev) => prev + (activeJob ? activeJob.payout : 165));
-      setCompletedCount((prev) => prev + 1);
-      if (onSyncStatusWithCustomer) onSyncStatusWithCustomer('completed');
+      // Trigger Proof of Delivery inspection modal with digital signature
+      setIsPodModalOpen(true);
+    }
+  };
+
+  const handlePodCompleted = (certificate) => {
+    setIsPodModalOpen(false);
+    setPodCertificate(certificate);
+    try {
+      localStorage.setItem('shiftly_last_pod_certificate', JSON.stringify(certificate));
+    } catch (e) {}
+
+    setJobStep(4); // Delivered
+    setTodayEarnings((prev) => prev + (activeJob ? activeJob.payout : 165));
+    setCompletedCount((prev) => prev + 1);
+
+    if (onSyncStatusWithCustomer) {
+      onSyncStatusWithCustomer('completed', certificate);
     }
   };
 
@@ -130,7 +157,7 @@ export default function DriverPortal({
     { title: 'Heading to Pickup', action: 'Tap: Arrived at Pickup', desc: 'Navigate to pickup address' },
     { title: 'Arrived at Pickup', action: 'Tap: Cargo Verified & Loaded', desc: 'Load items into truck' },
     { title: 'Cargo Secured', action: 'Tap: Start Trip to Destination', desc: 'Secure load & depart' },
-    { title: 'In Transit', action: 'Tap: Complete Delivery', desc: 'Driving to dropoff point' },
+    { title: 'In Transit', action: 'Tap: Proof of Delivery & Sign-off', desc: 'Arrived at destination' },
     { title: 'Delivered', action: 'Collect Payout & Back to Radar', desc: 'Job successfully completed' }
   ];
 
@@ -315,6 +342,33 @@ export default function DriverPortal({
               </div>
               <h4 style={{ margin: '0 0 4px 0', fontSize: '1.1rem', color: '#ffffff' }}>Payout Deposited!</h4>
               <p style={{ margin: '0 0 14px 0', fontSize: '0.8rem', color: '#a1a1aa' }}>+${activeJob.payout.toFixed(2)} added to your daily balance</p>
+              
+              {/* View POD Certificate Button */}
+              {podCertificate && (
+                <button
+                  type="button"
+                  onClick={() => setIsViewPodOpen(true)}
+                  style={{
+                    width: '100%',
+                    padding: '12px',
+                    borderRadius: '12px',
+                    border: '1px solid #0052ff',
+                    background: 'rgba(0, 82, 255, 0.15)',
+                    color: '#60a5fa',
+                    fontWeight: 800,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    marginBottom: '10px'
+                  }}
+                >
+                  <ShieldCheck size={16} /> View Signed POD Certificate ({podCertificate.podId})
+                </button>
+              )}
+
               <button
                 onClick={handleResetJob}
                 style={{
@@ -502,6 +556,23 @@ export default function DriverPortal({
             if (onSendDriverMessage) onSendDriverMessage(newMsg);
           }}
           onClose={() => setIsChatOpen(false)}
+        />
+      )}
+
+      {/* Proof of Delivery (POD) & Digital Signature Capture Modal */}
+      {isPodModalOpen && (
+        <ProofOfDeliveryModal
+          activeJob={activeJob}
+          onCompleteDelivery={handlePodCompleted}
+          onClose={() => setIsPodModalOpen(false)}
+        />
+      )}
+
+      {/* Proof of Delivery Certificate Viewer Modal */}
+      {isViewPodOpen && (
+        <ProofOfDeliveryViewer
+          podData={podCertificate}
+          onClose={() => setIsViewPodOpen(false)}
         />
       )}
     </div>

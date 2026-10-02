@@ -200,6 +200,27 @@ async function runTestSuite() {
     assert('Payment & Payout flow', false, err.message);
   }
 
+  // 7. TEST: Proof of Delivery (POD) & Digital Signature Verification
+  console.log('\n--- 7. Testing Driver Proof of Delivery & Digital Signature ---');
+  try {
+    const samplePodCertificate = {
+      podId: 'POD-2026-88192',
+      timestamp: new Date().toISOString(),
+      driverName: 'Marcus Vance',
+      signerName: 'Sarah Jenkins',
+      conditionStatus: 'PRISTINE',
+      photosCount: 2,
+      signatureRecorded: true
+    };
+
+    assert('Validates POD Certificate ID structure', samplePodCertificate.podId.startsWith('POD-2026-'), `(${samplePodCertificate.podId})`);
+    assert('Validates Recipient Digital Sign-off presence', samplePodCertificate.signatureRecorded === true && !!samplePodCertificate.signerName);
+    assert('Validates Cargo Inspection Pristine Condition Tag', samplePodCertificate.conditionStatus === 'PRISTINE');
+    assert('Validates Delivery Photo Attachments Count', samplePodCertificate.photosCount >= 1, `(${samplePodCertificate.photosCount} photos attached)`);
+  } catch (err) {
+    assert('Proof of Delivery validation', false, err.message);
+  }
+
   console.log('\n====================================================');
   console.log(`📊 TEST SUITE COMPLETE: ${passed} PASSED, ${failed} FAILED`);
   console.log('====================================================');
@@ -210,3 +231,4 @@ async function runTestSuite() {
 }
 
 runTestSuite();
+

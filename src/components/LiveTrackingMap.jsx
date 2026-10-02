@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import { Phone, MessageSquare, Star, Play, Pause, ShieldCheck, Navigation, MapPin, ArrowRight } from 'lucide-react';
+import { Phone, MessageSquare, Star, Play, Pause, ShieldCheck, Navigation, MapPin, ArrowRight, FileText, CheckCircle2 } from 'lucide-react';
 import DriverChatModal from './DriverChatModal';
 import DriverCallModal from './DriverCallModal';
 import MoverProfileModal from './MoverProfileModal';
 import MoveCompletionModal from './MoveCompletionModal';
+import ProofOfDeliveryViewer from './ProofOfDeliveryViewer';
 import { generateInterpolatedRoute, geocodeAddress, calculateDistanceMiles } from '../utils/geoUtils';
 
 export const MOVE_STAGES = [
@@ -32,6 +33,7 @@ export default function LiveTrackingMap({
   const [pointIndex, setPointIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [currentStageIdx, setCurrentStageIdx] = useState(3);
+  const [isPodViewerOpen, setIsPodViewerOpen] = useState(false);
   const [dynamicRoute, setDynamicRoute] = useState([
     [51.5154, -0.1419],
     [51.5110, -0.1480],
@@ -377,6 +379,33 @@ export default function LiveTrackingMap({
             </button>
           </div>
         </div>
+
+        {/* Completed POD Certificate Pill */}
+        {currentStage.key === 'COMPLETED' && (
+          <div style={{ marginTop: '12px', paddingTop: '10px', borderTop: '1px dashed #e2e8f0' }}>
+            <button
+              type="button"
+              onClick={() => setIsPodViewerOpen(true)}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: '12px',
+                border: '1px solid #0052ff',
+                background: 'rgba(0, 82, 255, 0.06)',
+                color: '#0052ff',
+                fontWeight: 800,
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px'
+              }}
+            >
+              <ShieldCheck size={16} /> View Certified Proof of Delivery (POD)
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Modals */}
@@ -390,7 +419,6 @@ export default function LiveTrackingMap({
           onClose={() => setIsChatOpen(false)}
         />
       )}
-
 
       {isCallOpen && (
         <DriverCallModal
@@ -412,6 +440,14 @@ export default function LiveTrackingMap({
           onClose={() => setIsRatingOpen(false)}
         />
       )}
+
+      {isPodViewerOpen && (
+        <ProofOfDeliveryViewer
+          podData={activeBooking.podCertificate || (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('shiftly_last_pod_certificate') || 'null') : null)}
+          onClose={() => setIsPodViewerOpen(false)}
+        />
+      )}
     </div>
   );
 }
+

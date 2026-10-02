@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { MapPin, Navigation, Clock, CheckCircle2, ChevronRight, X, Receipt, ShieldCheck, Truck, ArrowRight, RotateCcw } from 'lucide-react';
+import { MapPin, Navigation, Clock, CheckCircle2, ChevronRight, X, Receipt, ShieldCheck, Truck, ArrowRight, RotateCcw, FileText } from 'lucide-react';
+import ProofOfDeliveryViewer from './ProofOfDeliveryViewer';
 
 export default function BookingsList({ bookings, onTrackBooking, onNewBooking }) {
   const [filter, setFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'COMPLETED'
   const [selectedReceipt, setSelectedReceipt] = useState(null);
+  const [selectedPod, setSelectedPod] = useState(null);
 
   const allBookings = bookings || [];
 
@@ -189,7 +191,7 @@ export default function BookingsList({ bookings, onTrackBooking, onNewBooking })
                       background: 'var(--bg-input)',
                       color: '#09090b',
                       border: '1px solid var(--border-subtle)',
-                      padding: '8px 12px',
+                      padding: '8px 10px',
                       borderRadius: '10px',
                       fontSize: '0.75rem',
                       fontWeight: 700,
@@ -198,6 +200,29 @@ export default function BookingsList({ bookings, onTrackBooking, onNewBooking })
                   >
                     Receipt
                   </button>
+
+                  {!isActive && (
+                    <button
+                      onClick={() => setSelectedPod(trip.podCertificate || (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('shiftly_last_pod_certificate') || 'null') : null))}
+                      style={{
+                        background: 'rgba(0, 82, 255, 0.08)',
+                        color: '#0052ff',
+                        border: '1px solid rgba(0, 82, 255, 0.25)',
+                        padding: '8px 10px',
+                        borderRadius: '10px',
+                        fontSize: '0.75rem',
+                        fontWeight: 800,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                      title="View Proof of Delivery Certificate"
+                    >
+                      <ShieldCheck size={13} />
+                      <span>POD</span>
+                    </button>
+                  )}
 
                   {isActive ? (
                     <button
@@ -296,12 +321,49 @@ export default function BookingsList({ bookings, onTrackBooking, onNewBooking })
               </span>
             </div>
 
+            {/* Proof of Delivery Quick Action */}
+            <button
+              type="button"
+              onClick={() => {
+                const targetPod = selectedReceipt.podCertificate || (typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('shiftly_last_pod_certificate') || 'null') : null);
+                setSelectedReceipt(null);
+                setSelectedPod(targetPod);
+              }}
+              style={{
+                width: '100%',
+                padding: '12px',
+                borderRadius: '12px',
+                border: '1px solid #0052ff',
+                background: 'rgba(0, 82, 255, 0.08)',
+                color: '#0052ff',
+                fontWeight: 800,
+                fontSize: '0.85rem',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                marginBottom: '10px'
+              }}
+            >
+              <ShieldCheck size={16} /> View Proof of Delivery (POD) Certificate
+            </button>
+
             <button className="btn-black" onClick={() => setSelectedReceipt(null)}>
               Close Receipt
             </button>
           </div>
         </div>
       )}
+
+      {/* Proof of Delivery Viewer Modal */}
+      {selectedPod && (
+        <ProofOfDeliveryViewer
+          podData={selectedPod}
+          onClose={() => setSelectedPod(null)}
+        />
+      )}
     </div>
   );
 }
+
