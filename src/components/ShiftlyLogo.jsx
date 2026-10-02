@@ -2,7 +2,7 @@ import React from 'react';
 
 /**
  * Shiftly Official Logo & Brandmark Component
- * Featuring the locked-in S-Monogram and the chunky 3D extruded block font.
+ * Featuring the official 3D extruded Shiftly brandmark in HD.
  */
 export default function ShiftlyLogo({ 
   size = 36, 
@@ -13,41 +13,34 @@ export default function ShiftlyLogo({
 }) {
   const logoImg = (
     <img 
-      src="/assets/logo.png" 
-      alt="Shiftly Logo" 
+      src="/shiftly-logo-hd.png" 
+      alt="Shiftly Official Logo" 
       style={{ 
         width: `${size}px`, 
-        height: `${size}px`, 
-        objectFit: 'contain',
+        height: `${size * 0.88}px`, 
+        borderRadius: '9px',
+        objectFit: 'cover',
         display: 'block',
-        flexShrink: 0
+        flexShrink: 0,
+        boxShadow: '0 4px 12px rgba(0, 82, 255, 0.22)',
+        border: '1.5px solid rgba(255, 255, 255, 0.8)'
       }} 
     />
   );
 
-  if (variant === 'icon-only') {
+  // Pure Icon / Badge Only (Official Logo Emblem)
+  if (variant === 'icon-only' || variant === 'badge' || variant === 'brandmark') {
     return (
-      <div className={`shiftly-logo-icon ${className}`} style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', ...style }}>
+      <div 
+        className={`shiftly-logo-badge ${className}`} 
+        style={{ 
+          display: 'inline-flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          ...style 
+        }}
+      >
         {logoImg}
-      </div>
-    );
-  }
-
-  // LemFi-style 3D block wordmark
-  if (variant === 'lemfi-3d') {
-    return (
-      <div className={`shiftly-brandmark-lemfi ${className}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', ...style }}>
-        {logoImg}
-        <span 
-          className="lemfi-3d-title-dark" 
-          style={{ 
-            fontSize: `${Math.max(20, size * 0.65)}px`,
-            letterSpacing: '-0.02em',
-            fontFamily: 'var(--font-heading)'
-          }}
-        >
-          SHIFTLY
-        </span>
       </div>
     );
   }
@@ -59,7 +52,7 @@ export default function ShiftlyLogo({
         <span 
           className="lemfi-3d-title-dark" 
           style={{ 
-            fontSize: `${Math.max(18, size * 0.52)}px`,
+            fontSize: `${Math.max(16, size * 0.48)}px`,
             letterSpacing: '-0.02em',
             fontFamily: 'var(--font-heading)'
           }}
@@ -70,16 +63,26 @@ export default function ShiftlyLogo({
     );
   }
 
-  // Default: 'inline' with 3D block font
+  // Default: 'inline' — Displays the Official Shiftly Logo Emblem with optional bold title
   return (
-    <div className={`shiftly-brandmark-inline ${className}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', ...style }}>
+    <div 
+      className={`shiftly-brandmark-inline ${className}`} 
+      style={{ 
+        display: 'inline-flex', 
+        alignItems: 'center', 
+        gap: '9px', 
+        ...style 
+      }}
+    >
       {logoImg}
       <span 
         className="lemfi-3d-title-dark" 
         style={{ 
           fontSize: `${Math.max(18, size * 0.58)}px`,
-          letterSpacing: '-0.02em',
-          fontFamily: 'var(--font-heading)'
+          letterSpacing: '-0.03em',
+          fontFamily: 'var(--font-heading)',
+          color: '#09090b',
+          fontWeight: 900
         }}
       >
         SHIFTLY
