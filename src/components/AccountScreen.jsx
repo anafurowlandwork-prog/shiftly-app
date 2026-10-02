@@ -1,9 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   User, ShieldCheck, Phone, Mail, CreditCard, 
   LogOut, ChevronRight, Sparkles, HelpCircle, FileText, 
   Lock, Globe, CheckCircle2, RotateCcw, Award, Bell,
-  Camera, Upload, Trash2, X, Check
+  Camera, Upload, Trash2, X, Check, Loader2
 } from 'lucide-react';
 import ShiftlyLogo from './ShiftlyLogo';
 import TermsOfServiceModal from './TermsOfServiceModal';
@@ -15,6 +15,8 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [uploadToast, setUploadToast] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef(null);
 
   // Synchronous, reactive state for profile picture
   const [currentPhoto, setCurrentPhoto] = useState(() => {
@@ -72,7 +74,7 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
       onUpdateUser(updatedUser);
     }
 
-    setUploadToast(photoUrl ? 'Profile photo uploaded! ✓' : 'Profile photo removed');
+    setUploadToast(photoUrl ? 'Profile photo updated! ✓' : 'Profile photo removed');
     setTimeout(() => setUploadToast(null), 3000);
   };
 
@@ -80,43 +82,59 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsUploading(true);
+    triggerHaptic('light');
+
     const reader = new FileReader();
     reader.onload = (event) => {
       const rawDataUrl = event.target.result;
-      if (rawDataUrl) {
-        // Immediate UI update
-        applyPhotoChange(rawDataUrl);
-
-        // Client-side canvas compression for snappy storage
-        try {
-          const img = new window.Image();
-          img.onload = () => {
-            try {
-              const canvas = document.createElement('canvas');
-              const size = Math.min(img.width, img.height);
-              const targetSize = Math.min(size, 360);
-              canvas.width = targetSize;
-              canvas.height = targetSize;
-              const ctx = canvas.getContext('2d');
-              const sx = (img.width - size) / 2;
-              const sy = (img.height - size) / 2;
-              ctx.drawImage(img, sx, sy, size, size, 0, 0, targetSize, targetSize);
-              const compressed = canvas.toDataURL('image/jpeg', 0.85);
-              if (compressed && compressed.length < rawDataUrl.length) {
-                try {
-                  localStorage.setItem('shiftly_user_profile_photo', compressed);
-                  const updated = { ...authUser, photoUrl: compressed };
-                  localStorage.setItem('shiftly_auth_user', JSON.stringify(updated));
-                } catch (err) {}
-              }
-            } catch (err) {}
-          };
-          img.src = rawDataUrl;
-        } catch (err) {}
+      if (!rawDataUrl) {
+        setIsUploading(false);
+        return;
       }
+
+      // Pre-compress using HTML5 Canvas down to high-res 400x400 (under 40KB)
+      // to avoid exceeding mobile browser localStorage quotas
+      const img = new window.Image();
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          const size = Math.min(img.width, img.height);
+          const targetSize = Math.min(size, 400);
+          canvas.width = targetSize;
+          canvas.height = targetSize;
+          const ctx = canvas.getContext('2d');
+          
+          // Center crop square
+          const sx = (img.width - size) / 2;
+          const sy = (img.height - size) / 2;
+          ctx.drawImage(img, sx, sy, size, size, 0, 0, targetSize, targetSize);
+          
+          const compressed = canvas.toDataURL('image/jpeg', 0.88);
+          applyPhotoChange(compressed);
+        } catch (err) {
+          // Fallback to raw if canvas fails
+          applyPhotoChange(rawDataUrl);
+        } finally {
+          setIsUploading(false);
+        }
+      };
+      img.onerror = () => {
+        setIsUploading(false);
+        applyPhotoChange(rawDataUrl);
+      };
+      img.src = rawDataUrl;
+    };
+    reader.onerror = () => {
+      setIsUploading(false);
     };
     reader.readAsDataURL(file);
     e.target.value = '';
+  };
+
+  const triggerUpload = () => {
+    triggerHaptic('light');
+    fileInputRef.current?.click();
   };
 
   return (
@@ -172,8 +190,28 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
         gap: '16px',
         position: 'relative'
       }}>
+        {/* Hidden File Input for Native Photo Picker */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          capture="user"
+          onChange={handleFileInput}
+          style={{ display: 'none' }}
+        />
+
         {/* Direct Clickable Avatar Circle with Silhouette Mockup */}
-        <div style={{ position: 'relative', flexShrink: 0, width: '72px', height: '72px' }}>
+        <div 
+          onClick={triggerUpload}
+          style={{ 
+            position: 'relative', 
+            flexShrink: 0, 
+            width: '72px', 
+            height: '72px',
+            cursor: 'pointer'
+          }}
+          title="Tap to change profile picture"
+        >
           {currentPhoto ? (
             <div style={{
               width: '72px',
@@ -219,7 +257,7 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
             </div>
           )}
 
-          {/* Camera Edit Badge */}
+          {/* Camera Edit Badge or Loader */}
           <div style={{
             position: 'absolute',
             bottom: -1,
@@ -227,7 +265,7 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
             width: '26px',
             height: '26px',
             borderRadius: '50%',
-            background: '#0052ff',
+            background: isUploading ? '#09090b' : '#0052ff',
             color: '#ffffff',
             border: '2px solid #ffffff',
             display: 'flex',
@@ -236,25 +274,12 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
             boxShadow: '0 2px 8px rgba(0,0,0,0.25)',
             pointerEvents: 'none'
           }}>
-            <Camera size={13} />
+            {isUploading ? (
+              <Loader2 size={13} className="spin" />
+            ) : (
+              <Camera size={13} />
+            )}
           </div>
-
-          {/* Native File Input Overlay on Avatar */}
-          <input
-            type="file"
-            accept="image/*"
-            onChange={handleFileInput}
-            title="Upload profile photo"
-            style={{
-              position: 'absolute',
-              inset: 0,
-              opacity: 0,
-              width: '100%',
-              height: '100%',
-              cursor: 'pointer',
-              zIndex: 10
-            }}
-          />
         </div>
 
         {/* User Info & Direct Upload Actions */}
@@ -273,49 +298,42 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
           </span>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
-            {/* Direct Upload Button with Native Invisible Input Overlay */}
-            <div style={{ position: 'relative', display: 'inline-block' }}>
-              <button
-                type="button"
-                style={{
-                  background: '#0052ff',
-                  color: '#ffffff',
-                  border: 'none',
-                  borderRadius: '10px',
-                  padding: '7px 14px',
-                  fontSize: '0.78rem',
-                  fontWeight: 800,
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  boxShadow: '0 3px 8px rgba(0, 82, 255, 0.28)',
-                  cursor: 'pointer',
-                  pointerEvents: 'none'
-                }}
-              >
-                <Upload size={13} />
-                <span>{currentPhoto ? 'Change Photo' : 'Upload Photo'}</span>
-              </button>
-
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileInput}
-                title="Select photo from device"
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  opacity: 0,
-                  width: '100%',
-                  height: '100%',
-                  cursor: 'pointer',
-                  zIndex: 10
-                }}
-              />
-            </div>
+            {/* Direct Upload Button */}
+            <button
+              type="button"
+              onClick={triggerUpload}
+              disabled={isUploading}
+              style={{
+                background: '#0052ff',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '10px',
+                padding: '7px 14px',
+                fontSize: '0.78rem',
+                fontWeight: 800,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 3px 8px rgba(0, 82, 255, 0.28)',
+                cursor: 'pointer',
+                opacity: isUploading ? 0.7 : 1
+              }}
+            >
+              {isUploading ? (
+                <>
+                  <Loader2 size={13} className="spin" />
+                  <span>Processing...</span>
+                </>
+              ) : (
+                <>
+                  <Upload size={13} />
+                  <span>{currentPhoto ? 'Change Photo' : 'Upload Photo'}</span>
+                </>
+              )}
+            </button>
 
             {/* Remove Photo Action if custom photo is uploaded */}
-            {currentPhoto && (
+            {currentPhoto && !isUploading && (
               <button
                 type="button"
                 onClick={() => applyPhotoChange(null)}
