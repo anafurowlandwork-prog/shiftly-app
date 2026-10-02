@@ -64,6 +64,7 @@ export default function BookingWizard({ onBookingConfirmed }) {
 
   // Custom & Specialty Heavy Items (Pianos, Safes, Treadmills, etc.)
   const [customHeavyItems, setCustomHeavyItems] = useState([]);
+  const [scannedVisionData, setScannedVisionData] = useState(null);
 
   const [addOns, setAddOns] = useState({
     packing: true,
@@ -200,17 +201,21 @@ export default function BookingWizard({ onBookingConfirmed }) {
     onBookingConfirmed(newBooking);
   };
 
-  const handleAIScanResult = (room) => {
-    setMoveSize(room.name);
-    if (room.itemCounts) {
+  const handleAIScanResult = (scanData) => {
+    setScannedVisionData(scanData);
+    setMoveSize(scanData.name || 'AI Scanned Inventory');
+    if (scanData.itemCounts) {
       setItems((prev) => ({
         ...prev,
-        ...room.itemCounts,
+        ...scanData.itemCounts,
       }));
     }
-    if (room.recommendedTier) {
-      const match = VEHICLE_TIERS.find(t => t.name === room.recommendedTier);
+    if (scanData.recommendedTier) {
+      const match = VEHICLE_TIERS.find(t => t.name === scanData.recommendedTier);
       if (match) setSelectedVehicle(match);
+    }
+    if (scanData.recommendedHelpers) {
+      setHelpersCount(scanData.recommendedHelpers);
     }
     setAddOns((prev) => ({ ...prev, packing: true }));
   };
@@ -575,7 +580,7 @@ export default function BookingWizard({ onBookingConfirmed }) {
               color: '#ffffff',
               borderRadius: '18px',
               padding: '14px 16px',
-              marginBottom: '16px',
+              marginBottom: scannedVisionData ? '12px' : '16px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -603,7 +608,7 @@ export default function BookingWizard({ onBookingConfirmed }) {
                   Shiftly Vision AI™ Scanner
                 </strong>
                 <span style={{ fontSize: '0.74rem', color: '#a1a1aa' }}>
-                  Snap room photo to auto-detect items & volume
+                  {scannedVisionData ? 'Scanned & Verified • Tap to Re-Scan' : 'Snap room photo to auto-detect items & weight'}
                 </span>
               </div>
             </div>
@@ -619,10 +624,53 @@ export default function BookingWizard({ onBookingConfirmed }) {
               alignItems: 'center',
               gap: '4px'
             }}>
-              <span>SCAN</span>
+              <span>{scannedVisionData ? 'RE-SCAN' : 'SCAN'}</span>
               <ArrowRight size={12} />
             </div>
           </div>
+
+          {/* Scanned Vision Verification Banner */}
+          {scannedVisionData && (
+            <div style={{
+              background: '#eff6ff',
+              border: '1.5px solid #0052ff',
+              borderRadius: '16px',
+              padding: '12px 14px',
+              marginBottom: '16px',
+              boxShadow: '0 4px 12px rgba(0, 82, 255, 0.08)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 800, color: '#0052ff' }}>
+                    ✓ AI VISION VERIFIED INVENTORY
+                  </span>
+                </div>
+                <span style={{ fontSize: '0.68rem', background: '#0052ff', color: '#ffffff', padding: '2px 8px', borderRadius: '4px', fontWeight: 800 }}>
+                  ACTIVE
+                </span>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '8px' }}>
+                <div style={{ background: '#ffffff', padding: '8px 10px', borderRadius: '10px', border: '1px solid #bfdbfe' }}>
+                  <span style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>SCANNED WEIGHT</span>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 900, color: '#0052ff' }}>
+                    {scannedVisionData.estWeight || (scannedVisionData.estTotalWeightLbs + ' lbs')}
+                  </div>
+                </div>
+
+                <div style={{ background: '#ffffff', padding: '8px 10px', borderRadius: '10px', border: '1px solid #bfdbfe' }}>
+                  <span style={{ fontSize: '0.65rem', color: '#64748b', fontWeight: 700, textTransform: 'uppercase' }}>CARGO VOLUME</span>
+                  <div style={{ fontSize: '1.05rem', fontWeight: 900, color: '#09090b' }}>
+                    {scannedVisionData.estCuFt} cu.ft
+                  </div>
+                </div>
+              </div>
+
+              <span style={{ fontSize: '0.72rem', color: '#1e3a8a', fontWeight: 600 }}>
+                Matched Vehicle: <strong>{selectedVehicle.name}</strong> • <strong>{helpersCount} Movers</strong> allocated.
+              </span>
+            </div>
+          )}
 
           {/* Move Size Cards */}
           <div style={{ background: '#ffffff', borderRadius: '20px', border: '1px solid var(--border-subtle)', padding: '16px', marginBottom: '14px', boxShadow: 'var(--shadow-sm)' }}>
