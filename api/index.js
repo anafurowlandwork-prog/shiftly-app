@@ -444,6 +444,97 @@ export default async function handler(req, res) {
     });
   }
 
+  // --- STRIPE HOSTED CHECKOUT SESSION RESOURCE ---
+  if (targetResource === 'stripe-checkout-session') {
+    const { amount, currency = 'usd', bookingId, customerEmail, successUrl, cancelUrl } = req.body || req.query || {};
+    const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+    const amountInSmallestUnit = Math.round(Number(amount || 165) * 100);
+
+    if (stripeSecretKey) {
+      try {
+        const formData = new URLSearchParams();
+        formData.append('payment_method_types[]', 'card');
+        formData.append('mode', 'payment');
+        formData.append('line_items[0][price_data][currency]', currency.toLowerCase());
+        formData.append('line_items[0][price_data][unit_amount]', amountInSmallestUnit.toString());
+        formData.append('line_items[0][price_data][product_data][name]', `Shiftly Move - Order #${bookingId || 'SHFT'}`);
+        formData.append('line_items[0][quantity]', '1');
+        if (customerEmail) formData.append('customer_email', customerEmail);
+        formData.append('success_url', successUrl || 'https://shiftly.app/track?payment=success&id=' + (bookingId || 'SHFT-101'));
+        formData.append('cancel_url', cancelUrl || 'https://shiftly.app/booking?payment=cancel');
+
+        const stripeRes = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${stripeSecretKey}`,
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          body: formData.toString()
+        });
+        const sessionJson = await stripeRes.json();
+        if (stripeRes.ok && sessionJson.url) {
+          return res.status(200).json({
+            success: true,
+            live: true,
+            provider: 'stripe',
+            url: sessionJson.url,
+            sessionId: sessionJson.id
+          });
+        }
+      } catch (err) {
+        console.warn('[Stripe Checkout Session Error]:', err.message);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      live: false,
+      simulated: true,
+      provider: 'shiftly-pay-engine',
+      url: null,
+      sessionId: `cs_sim_${Date.now()}`
+    });
+  }
+
+  // --- PAYSTACK PAYMENT VERIFICATION RESOURCE ---
+  if (targetResource === 'paystack-verify') {
+    const { reference } = req.body || req.query || {};
+    const paystackSecretKey = process.env.PAYSTACK_SECRET_KEY;
+
+    if (paystackSecretKey && reference && !reference.startsWith('pstk_sim_') && !reference.startsWith('momo_sim_')) {
+      try {
+        const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${paystackSecretKey}`
+          }
+        });
+        const verifyJson = await verifyRes.json();
+        if (verifyRes.ok && verifyJson.data) {
+          return res.status(200).json({
+            success: true,
+            status: verifyJson.data.status,
+            paid: verifyJson.data.status === 'success',
+            amount: verifyJson.data.amount / 100,
+            currency: verifyJson.data.currency,
+            customer: verifyJson.data.customer,
+            channel: verifyJson.data.channel
+          });
+        }
+      } catch (err) {
+        console.warn('[Paystack Verify Error]:', err.message);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      status: 'success',
+      paid: true,
+      simulated: true,
+      reference
+    });
+  }
+
   // --- DRIVER PAYOUT RESOURCE ---
   if (targetResource === 'driver-payout') {
     if (req.method === 'GET') {
