@@ -38,11 +38,37 @@ const POPULAR_LOCATIONS = {
 };
 
 /**
- * Searches for real address suggestions using Nominatim
+ * Searches for real address suggestions using Google Places API (New) with fallback
  */
-export async function searchAddressSuggestions(query) {
-  if (!query || query.trim().length < 3) return [];
+export async function searchAddressSuggestions(query, countryCode = '+44') {
+  if (!query || query.trim().length < 2) return [];
   
+  // 1. Try Google Places API (New) via Shiftly Master API
+  try {
+    const res = await fetch('/api?resource=places-autocomplete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input: query.trim(), countryCode })
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.suggestions && data.suggestions.length > 0) {
+        return data.suggestions.map((s) => ({
+          placeId: s.placeId,
+          displayName: s.displayName || `${s.mainText}, ${s.secondaryText}`,
+          mainText: s.mainText || s.displayName.split(',')[0],
+          secondaryText: s.secondaryText || s.displayName.split(',').slice(1).join(', ').trim(),
+          lat: s.lat,
+          lng: s.lng,
+          source: s.source || 'google-places-new'
+        }));
+      }
+    }
+  } catch (err) {
+    console.warn('[Places Search API]:', err.message);
+  }
+
+  // 2. Direct OpenStreetMap Nominatim Fallback
   try {
     const encoded = encodeURIComponent(query.trim());
     const res = await fetch(
@@ -56,11 +82,15 @@ export async function searchAddressSuggestions(query) {
     if (!res.ok) return [];
     const data = await res.json();
     return data.map((item) => ({
+      placeId: `osm_${item.place_id || item.osm_id}`,
       displayName: item.display_name,
+      mainText: item.display_name.split(',')[0],
+      secondaryText: item.display_name.split(',').slice(1).join(', ').trim(),
       lat: parseFloat(item.lat),
       lng: parseFloat(item.lon),
       city: item.address?.city || item.address?.town || item.address?.village || item.address?.state,
-      country: item.address?.country
+      country: item.address?.country,
+      source: 'osm-fallback'
     }));
   } catch (err) {
     console.warn('Address search fallback:', err.message);
@@ -69,23 +99,42 @@ export async function searchAddressSuggestions(query) {
 }
 
 /**
- * Resolves any address string to GPS [lat, lng] coordinates
+ * Resolves any address string or placeId to GPS [lat, lng] coordinates
  */
-export async function geocodeAddress(address) {
+export async function geocodeAddress(address, placeId = null) {
   if (!address || typeof address !== 'string') {
     return [51.5074, -0.1278]; // Default: London
   }
 
   const clean = address.trim().toLowerCase();
 
-  // 1. Check quick city lookup dictionary
+  // 1. Check quick city lookup dictionary for instant sub-millisecond response
   for (const [cityName, coords] of Object.entries(POPULAR_LOCATIONS)) {
     if (clean.includes(cityName)) {
       return coords;
     }
   }
 
-  // 2. Fetch from OpenStreetMap Nominatim
+  // 2. Query Google Places Details API via Shiftly Backend
+  if (placeId && !placeId.startsWith('osm_')) {
+    try {
+      const res = await fetch('/api?resource=places-details', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ placeId, address })
+      });
+      if (res.ok) {
+        const place = await res.json();
+        if (place.lat && place.lng) {
+          return [place.lat, place.lng];
+        }
+      }
+    } catch (e) {
+      console.warn('[Places Details Exception]:', e.message);
+    }
+  }
+
+  // 3. Fetch from OpenStreetMap Nominatim
   try {
     const encoded = encodeURIComponent(address.trim());
     const res = await fetch(
@@ -106,7 +155,7 @@ export async function geocodeAddress(address) {
     console.warn('Geocoding network fallback:', err.message);
   }
 
-  // 3. Fallback coordinate generation with deterministic hash offset
+  // 4. Fallback coordinate generation with deterministic hash offset
   let hash = 0;
   for (let i = 0; i < clean.length; i++) {
     hash = (hash << 5) - hash + clean.charCodeAt(i);

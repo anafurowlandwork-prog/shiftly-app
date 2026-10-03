@@ -615,7 +615,123 @@ Analyze this image of a room, cargo, or furniture.
     return res.status(200).json(simulatedAnalysis);
   }
 
-  // Default Status JSON Response
+  // --- GOOGLE PLACES AUTOCOMPLETE API (NEW) ENDPOINT ---
+  if (targetResource === 'places-autocomplete') {
+    const { input, countryCode = 'gb' } = req.body || req.query || {};
+    if (!input || input.trim().length < 2) {
+      return res.status(200).json({ suggestions: [] });
+    }
+
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
+
+    if (apiKey) {
+      try {
+        const regionCode = countryCode.toLowerCase().replace('+', '');
+        const regionMap = { '1': 'us', '44': 'gb', '233': 'gh', '234': 'ng', '254': 'ke', '27': 'za', '49': 'de', '33': 'fr', '971': 'ae' };
+        const effectiveRegion = regionMap[regionCode] || (regionCode.length === 2 ? regionCode : 'gb');
+
+        const googleRes = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': apiKey,
+            'X-Goog-Maps-Solution-ID': 'gmp_git_agentskills_v1'
+          },
+          body: JSON.stringify({
+            input: input.trim(),
+            includedRegionCodes: [effectiveRegion]
+          })
+        });
+
+        if (googleRes.ok) {
+          const googleData = await googleRes.json();
+          const suggestions = (googleData.suggestions || []).map(s => {
+            const pred = s.placePrediction;
+            return {
+              placeId: pred?.placeId,
+              displayName: pred?.text?.text || '',
+              mainText: pred?.structuredFormat?.mainText?.text || '',
+              secondaryText: pred?.structuredFormat?.secondaryText?.text || '',
+              source: 'google-places-new'
+            };
+          });
+          return res.status(200).json({ success: true, suggestions, source: 'google-places-new' });
+        } else {
+          const errText = await googleRes.text();
+          console.warn('[Google Places API Notice]:', errText);
+        }
+      } catch (gErr) {
+        console.warn('[Google Places Exception]:', gErr.message);
+      }
+    }
+
+    // High-speed fallback suggestion generator & OpenStreetMap fallback
+    try {
+      const encoded = encodeURIComponent(input.trim());
+      const osmRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=5&addressdetails=1`, {
+        headers: { 'Accept': 'application/json' }
+      });
+      if (osmRes.ok) {
+        const osmData = await osmRes.json();
+        const suggestions = osmData.map(item => ({
+          placeId: `osm_${item.place_id || item.osm_id}`,
+          displayName: item.display_name,
+          mainText: item.display_name.split(',')[0],
+          secondaryText: item.display_name.split(',').slice(1).join(', ').trim(),
+          lat: parseFloat(item.lat),
+          lng: parseFloat(item.lon),
+          source: 'osm-fallback'
+        }));
+        return res.status(200).json({ success: true, suggestions, source: 'osm-fallback' });
+      }
+    } catch (e) {}
+
+    return res.status(200).json({ success: true, suggestions: [] });
+  }
+
+  // --- GOOGLE PLACES DETAILS & GEOCODING ENDPOINT ---
+  if (targetResource === 'places-details') {
+    const { placeId, address } = req.body || req.query || {};
+    const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
+
+    if (apiKey && placeId && !placeId.startsWith('osm_')) {
+      try {
+        const detailsRes = await fetch(`https://places.googleapis.com/v1/places/${placeId}`, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': apiKey,
+            'X-Goog-FieldMask': 'id,displayName,formattedAddress,location',
+            'X-Goog-Maps-Solution-ID': 'gmp_git_agentskills_v1'
+          }
+        });
+
+        if (detailsRes.ok) {
+          const place = await detailsRes.json();
+          return res.status(200).json({
+            success: true,
+            placeId: place.id,
+            displayName: place.displayName?.text || place.formattedAddress,
+            formattedAddress: place.formattedAddress,
+            lat: place.location?.latitude,
+            lng: place.location?.longitude,
+            source: 'google-places-new'
+          });
+        }
+      } catch (e) {
+        console.warn('[Google Places Details Error]:', e.message);
+      }
+    }
+
+    // Geocoding fallback
+    return res.status(200).json({
+      success: true,
+      formattedAddress: address || '10 Oxford Street, London',
+      lat: 51.5074,
+      lng: -0.1278,
+      source: 'geocoding-fallback'
+    });
+  }
   return res.status(200).json({
     status: 'online',
     service: 'Shiftly Master Backend Unified Engine',

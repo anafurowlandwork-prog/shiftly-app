@@ -75,35 +75,35 @@ export default function BookingWizard({ onBookingConfirmed }) {
   const [selectedVehicle, setSelectedVehicle] = useState(VEHICLE_TIERS[1]);
   const [helpersCount, setHelpersCount] = useState(2);
 
-  // Debounced Address Search for Pickup
+  // Debounced Address Search for Pickup with Google Places API (New)
   useEffect(() => {
-    if (!pickupAddress || pickupAddress.length < 3) {
+    if (!pickupAddress || pickupAddress.length < 2) {
       setPickupSuggestions([]);
       return;
     }
     const timer = setTimeout(async () => {
       setIsSearchingPickup(true);
-      const results = await searchAddressSuggestions(pickupAddress);
+      const results = await searchAddressSuggestions(pickupAddress, userCountryCode);
       setPickupSuggestions(results);
       setIsSearchingPickup(false);
-    }, 350);
+    }, 280);
     return () => clearTimeout(timer);
-  }, [pickupAddress]);
+  }, [pickupAddress, userCountryCode]);
 
-  // Debounced Address Search for Dropoff
+  // Debounced Address Search for Dropoff with Google Places API (New)
   useEffect(() => {
-    if (!dropoffAddress || dropoffAddress.length < 3) {
+    if (!dropoffAddress || dropoffAddress.length < 2) {
       setDropoffSuggestions([]);
       return;
     }
     const timer = setTimeout(async () => {
       setIsSearchingDropoff(true);
-      const results = await searchAddressSuggestions(dropoffAddress);
+      const results = await searchAddressSuggestions(dropoffAddress, userCountryCode);
       setDropoffSuggestions(results);
       setIsSearchingDropoff(false);
-    }, 350);
+    }, 280);
     return () => clearTimeout(timer);
-  }, [dropoffAddress]);
+  }, [dropoffAddress, userCountryCode]);
 
   // Real Calculated Haversine Distance
   const calculatedDistance = (pickupCoords && dropoffCoords) 
@@ -334,10 +334,15 @@ export default function BookingWizard({ onBookingConfirmed }) {
                   {pickupSuggestions.map((sug, i) => (
                     <div
                       key={i}
-                      onClick={() => {
+                      onClick={async () => {
                         setPickupAddress(sug.displayName);
-                        setPickupCoords([sug.lat, sug.lng]);
                         setPickupSuggestions([]);
+                        if (sug.lat && sug.lng) {
+                          setPickupCoords([sug.lat, sug.lng]);
+                        } else {
+                          const coords = await geocodeAddress(sug.displayName, sug.placeId);
+                          setPickupCoords(coords);
+                        }
                       }}
                       style={{
                         padding: '10px 14px',
@@ -347,13 +352,22 @@ export default function BookingWizard({ onBookingConfirmed }) {
                         color: '#09090b',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '8px'
+                        gap: '10px'
                       }}
                     >
-                      <MapPin size={14} color="#0052ff" />
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {sug.displayName}
-                      </span>
+                      <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(0, 82, 255, 0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <MapPin size={15} color="#0052ff" />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, color: '#09090b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {sug.mainText || sug.displayName.split(',')[0]}
+                        </div>
+                        {sug.secondaryText && (
+                          <div style={{ fontSize: '0.72rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '1px' }}>
+                            {sug.secondaryText}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -413,10 +427,15 @@ export default function BookingWizard({ onBookingConfirmed }) {
                   {dropoffSuggestions.map((sug, i) => (
                     <div
                       key={i}
-                      onClick={() => {
+                      onClick={async () => {
                         setDropoffAddress(sug.displayName);
-                        setDropoffCoords([sug.lat, sug.lng]);
                         setDropoffSuggestions([]);
+                        if (sug.lat && sug.lng) {
+                          setDropoffCoords([sug.lat, sug.lng]);
+                        } else {
+                          const coords = await geocodeAddress(sug.displayName, sug.placeId);
+                          setDropoffCoords(coords);
+                        }
                       }}
                       style={{
                         padding: '10px 14px',
@@ -426,13 +445,22 @@ export default function BookingWizard({ onBookingConfirmed }) {
                         color: '#09090b',
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '8px'
+                        gap: '10px'
                       }}
                     >
-                      <MapPin size={14} color="#09090b" />
-                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {sug.displayName}
-                      </span>
+                      <div style={{ width: '28px', height: '28px', borderRadius: '8px', background: 'rgba(9, 9, 11, 0.06)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <MapPin size={15} color="#09090b" />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, color: '#09090b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {sug.mainText || sug.displayName.split(',')[0]}
+                        </div>
+                        {sug.secondaryText && (
+                          <div style={{ fontSize: '0.72rem', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: '1px' }}>
+                            {sug.secondaryText}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
