@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { MapPin, Navigation, Clock, CheckCircle2, ChevronRight, X, Receipt, ShieldCheck, Truck, ArrowRight, RotateCcw, FileText } from 'lucide-react';
 import ProofOfDeliveryViewer from './ProofOfDeliveryViewer';
+import { formatCurrencyPrice } from '../utils/currencyUtils';
 
 export default function BookingsList({ bookings, onTrackBooking, onNewBooking }) {
   const [filter, setFilter] = useState('ALL'); // 'ALL' | 'ACTIVE' | 'COMPLETED'
@@ -180,7 +181,7 @@ export default function BookingsList({ bookings, onTrackBooking, onNewBooking })
                 <div>
                   <span style={{ fontSize: '0.68rem', color: 'var(--text-secondary)' }}>Total Paid</span>
                   <p style={{ fontSize: '1.2rem', fontFamily: 'var(--font-heading)', color: '#09090b', fontWeight: 900, margin: 0 }}>
-                    ${trip.total}
+                    {formatCurrencyPrice(trip.total, trip.countryCode)}
                   </p>
                 </div>
 
@@ -301,7 +302,7 @@ export default function BookingsList({ bookings, onTrackBooking, onNewBooking })
               </div>
               <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '8px', marginTop: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#09090b' }}>Total Paid</span>
-                <span style={{ fontWeight: 900, fontSize: '1.3rem', color: '#09090b' }}>${selectedReceipt.total}</span>
+                <span style={{ fontWeight: 900, fontSize: '1.3rem', color: '#09090b' }}>{formatCurrencyPrice(selectedReceipt.total, selectedReceipt.countryCode)}</span>
               </div>
             </div>
 
@@ -313,7 +314,7 @@ export default function BookingsList({ bookings, onTrackBooking, onNewBooking })
                 style={{ width: '42px', height: '42px', borderRadius: '50%', objectFit: 'cover' }}
               />
               <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#09090b' }}>{selectedReceipt.driver?.name || 'Marcus Vance'}</div>
+                <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#09090b' }}>{selectedReceipt.driver?.name || 'Assigned Lead Mover'}</div>
                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Lead Mover • ★ {selectedReceipt.driver?.rating || '4.95'}</div>
               </div>
               <span style={{ fontSize: '0.7rem', background: '#eff6ff', color: '#0052ff', padding: '4px 8px', borderRadius: '6px', fontWeight: 800 }}>

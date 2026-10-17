@@ -69,7 +69,7 @@ export default function App() {
     {
       id: 1,
       sender: 'driver',
-      text: "Hi! I'm Marcus Vance, your Shiftly lead mover. I'm en route with our team and 26ft Box Truck.",
+      text: "Hi! I'm your Shiftly lead mover. I'm en route with our team and vehicle.",
       time: '10:14 AM'
     },
     {
@@ -116,7 +116,7 @@ export default function App() {
     if (toggleMode === 'Customer') {
       setActiveToast({
         icon: 'chat',
-        title: 'Mover Marcus Vance',
+        title: `Mover ${currentBooking?.driver?.name || 'Lead Mover'}`,
         message: newMsg.text
       });
     }
@@ -138,7 +138,7 @@ export default function App() {
     setActiveToast({
       icon: 'truck',
       title: 'Mover Dispatched!',
-      message: 'Marcus Vance (4.98 ★) accepted your move'
+      message: `${newBooking?.driver?.name || 'Lead Mover'} (${newBooking?.driver?.rating || '4.98 ★'}) accepted your move`
     });
   };
 

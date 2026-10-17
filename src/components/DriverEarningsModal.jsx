@@ -5,8 +5,9 @@ import {
 } from 'lucide-react';
 import { executeDriverInstantPayout } from '../services/stripeService';
 import { triggerHaptic } from '../utils/nativeBridge';
+import { formatCurrencyPrice } from '../utils/currencyUtils';
 
-export default function DriverEarningsModal({ onClose }) {
+export default function DriverEarningsModal({ userCountryCode = '+44', onClose }) {
   const [balance, setBalance] = useState(384.50);
   const [tipsEarned, setTipsEarned] = useState(65.00);
   const [completedTrips, setCompletedTrips] = useState(4);
@@ -93,7 +94,7 @@ export default function DriverEarningsModal({ onClose }) {
               <CheckCircle2 size={36} color="#22c55e" />
             </div>
             <h4 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 6px 0' }}>
-              ${payoutSuccessDetails.amount.toFixed(2)} Deposited!
+              {formatCurrencyPrice(payoutSuccessDetails.amount, userCountryCode)} Deposited!
             </h4>
             <p style={{ fontSize: '0.85rem', color: '#a1a1aa', margin: '0 0 20px 0' }}>
               Sent instantly to {payoutSuccessDetails.destinationAccount}. Funds available in 1–2 minutes.
@@ -130,13 +131,13 @@ export default function DriverEarningsModal({ onClose }) {
                 AVAILABLE PAYOUT BALANCE
               </span>
               <div style={{ fontSize: '2.5rem', fontWeight: 900, fontFamily: 'var(--font-heading)', color: '#ffffff', margin: '4px 0 12px 0' }}>
-                ${balance.toFixed(2)}
+                {formatCurrencyPrice(balance, userCountryCode)}
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', background: '#09090b', padding: '10px 14px', borderRadius: '12px', border: '1px solid #1e1e24' }}>
                 <div>
                   <span style={{ fontSize: '0.7rem', color: '#71717a' }}>Tips (100% Yours)</span>
-                  <strong style={{ fontSize: '0.9rem', color: '#22c55e', display: 'block' }}>+${tipsEarned.toFixed(2)}</strong>
+                  <strong style={{ fontSize: '0.9rem', color: '#22c55e', display: 'block' }}>+{formatCurrencyPrice(tipsEarned, userCountryCode)}</strong>
                 </div>
                 <div>
                   <span style={{ fontSize: '0.7rem', color: '#71717a' }}>Moves Completed</span>
@@ -192,7 +193,7 @@ export default function DriverEarningsModal({ onClose }) {
                 <span>Depositing Funds via Stripe...</span>
               ) : (
                 <>
-                  <span>Instant Transfer ${balance.toFixed(2)}</span>
+                  <span>Instant Transfer {formatCurrencyPrice(balance, userCountryCode)}</span>
                   <ArrowUpRight size={18} />
                 </>
               )}

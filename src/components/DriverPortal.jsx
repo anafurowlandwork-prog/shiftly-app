@@ -179,18 +179,18 @@ export default function DriverPortal({
         >
           <div style={{ position: 'relative', width: '38px', height: '38px' }}>
             <img 
-              src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=256&q=80" 
-              alt="Marcus Vance"
+              src={locationPreset.mockDriver?.photo || "https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=256&q=80"} 
+              alt={locationPreset.mockDriver?.name || "Shiftly Driver"}
               style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover', border: '2px solid #0052ff' }}
             />
             <div style={{ position: 'absolute', bottom: -2, right: -2, width: '12px', height: '12px', borderRadius: '50%', background: '#22c55e', border: '2px solid #ffffff' }}></div>
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#09090b' }}>Marcus Vance</span>
+              <span style={{ fontWeight: 800, fontSize: '0.95rem', color: '#09090b' }}>{locationPreset.mockDriver?.name || "Shiftly Lead Mover"}</span>
               <ShieldCheck size={14} color="#0052ff" />
             </div>
-            <span style={{ fontSize: '0.725rem', color: '#0052ff', fontWeight: 700 }}>View Profile & Vehicle Specs →</span>
+            <span style={{ fontSize: '0.725rem', color: '#0052ff', fontWeight: 700 }}>{locationPreset.mockDriver?.vehiclePlate || 'Pro Driver'} • Profile & Specs →</span>
           </div>
         </div>
 
@@ -545,12 +545,20 @@ export default function DriverPortal({
 
       {/* Driver Profile Modal */}
       {isProfileOpen && (
-        <DriverProfileModal onClose={() => setIsProfileOpen(false)} />
+        <DriverProfileModal 
+          driver={locationPreset.mockDriver}
+          locationPreset={locationPreset}
+          userCountryCode={userCountryCode}
+          onClose={() => setIsProfileOpen(false)} 
+        />
       )}
 
       {/* Driver Earnings & Stripe Instant Payouts Modal */}
       {isEarningsOpen && (
-        <DriverEarningsModal onClose={() => setIsEarningsOpen(false)} />
+        <DriverEarningsModal 
+          userCountryCode={userCountryCode}
+          onClose={() => setIsEarningsOpen(false)} 
+        />
       )}
 
       {/* Driver Chat Sheet with Customer */}

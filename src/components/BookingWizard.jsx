@@ -198,13 +198,13 @@ export default function BookingWizard({ authUser, onBookingConfirmed }) {
       tip: paidDetails?.tip || 0,
       paymentStatus: 'PAID',
       status: 'DRIVER_EN_ROUTE',
-      driver: {
-        name: 'Marcus Vance',
+      driver: locationPreset.mockDriver || {
+        name: 'Assigned Mover',
         rating: '4.98 ★',
         trips: '480+ moves',
-        phone: '+44 7378 142815',
-        vehiclePlate: 'LX24 XFR',
-        photo: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=256&q=80',
+        phone: locationPreset.mockDriver?.phone || '+44 7378 142815',
+        vehiclePlate: locationPreset.mockDriver?.vehiclePlate || 'LX24 XFR',
+        photo: locationPreset.mockDriver?.photo || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=256&q=80',
       },
       createdAt: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     };

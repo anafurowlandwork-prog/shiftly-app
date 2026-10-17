@@ -84,11 +84,14 @@ export default function MoverProfileModal({ driver, onClose, onOpenChat, onOpenC
             Verified Customer Reviews
           </h4>
 
-          {[
-            { name: 'Sarah L.', rating: '5.0 ★', date: '2 days ago', text: 'Marcus and his crew arrived right on time! Handled our glass dining table and couch with zero scratches.' },
-            { name: 'Michael K.', rating: '5.0 ★', date: 'Last week', text: 'Super professional, friendly, and fast. The live GPS tracking made coordination effortless.' },
-            { name: 'Elena R.', rating: '5.0 ★', date: '2 weeks ago', text: 'Shiftly is amazing! Marcus wrapped all fragile items in heavy duty protective blankets.' },
-          ].map((rev, idx) => (
+          {(() => {
+            const firstName = driver?.name ? driver.name.split(' ')[0] : 'The driver';
+            return [
+              { name: 'Sarah L.', rating: '5.0 ★', date: '2 days ago', text: `${firstName} and the crew arrived right on time! Handled our glass dining table and couch with zero scratches.` },
+              { name: 'Michael K.', rating: '5.0 ★', date: 'Last week', text: 'Super professional, friendly, and fast. The live GPS tracking made coordination effortless.' },
+              { name: 'Elena R.', rating: '5.0 ★', date: '2 weeks ago', text: `Shiftly is amazing! ${firstName} wrapped all fragile items in heavy duty protective blankets.` },
+            ];
+          })().map((rev, idx) => (
             <div key={idx} style={{ background: '#fafafa', border: '1px solid #f4f4f5', padding: '10px 12px', borderRadius: '12px', marginBottom: '8px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
                 <strong style={{ fontSize: '0.82rem', color: '#09090b' }}>{rev.name}</strong>

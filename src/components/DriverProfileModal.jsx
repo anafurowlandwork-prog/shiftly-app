@@ -6,7 +6,16 @@ import {
 } from 'lucide-react';
 import ShiftlyLogo from './ShiftlyLogo';
 
-export default function DriverProfileModal({ onClose }) {
+export default function DriverProfileModal({ driver, locationPreset, userCountryCode, onClose }) {
+  const activeDriver = driver || locationPreset?.mockDriver || {
+    name: 'Marcus Vance',
+    rating: '4.98 ★',
+    trips: '482 moves',
+    phone: '+44 7378 142815',
+    vehiclePlate: 'LX24 XFR',
+    photo: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=256&q=80'
+  };
+
   const [isEditingBio, setIsEditingBio] = useState(false);
   const [driverBio, setDriverBio] = useState(
     'Professional logistics specialist with 6+ years experience in residential and commercial relocations. Expert in fragile antique handling, piano transport, and white-glove assembly.'
@@ -82,8 +91,8 @@ export default function DriverProfileModal({ onClose }) {
         <div style={{ textAlign: 'center', marginBottom: '20px', position: 'relative' }}>
           <div style={{ position: 'relative', width: '92px', height: '92px', margin: '0 auto 12px auto' }}>
             <img 
-              src="https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=256&q=80" 
-              alt="Marcus Vance"
+              src={activeDriver.photo} 
+              alt={activeDriver.name}
               style={{
                 width: '100%',
                 height: '100%',
@@ -116,7 +125,7 @@ export default function DriverProfileModal({ onClose }) {
           </div>
 
           <h3 style={{ fontFamily: 'var(--font-heading)', fontSize: '1.4rem', fontWeight: 900, color: '#09090b', margin: '0 0 4px 0' }}>
-            Marcus Vance
+            {activeDriver.name}
           </h3>
           
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '8px' }}>
@@ -136,7 +145,7 @@ export default function DriverProfileModal({ onClose }) {
               <ShieldCheck size={13} /> Verified Pro
             </span>
             <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#09090b', display: 'flex', alignItems: 'center', gap: '3px' }}>
-              <Star size={14} fill="#0052ff" color="#0052ff" /> 4.98 <span style={{ color: '#71717a', fontWeight: 500 }}>(482 moves)</span>
+              <Star size={14} fill="#0052ff" color="#0052ff" /> {activeDriver.rating || '4.98 ★'} <span style={{ color: '#71717a', fontWeight: 500 }}>({activeDriver.trips || '482 moves'})</span>
             </span>
           </div>
 
@@ -174,8 +183,8 @@ export default function DriverProfileModal({ onClose }) {
           <div style={{ background: '#ffffff', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '12px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
               <div>
-                <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#09090b', display: 'block' }}>2024 Freightliner M2 Box Truck</span>
-                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>License Plate: <strong style={{ color: '#09090b' }}>MA 7XF-992</strong></span>
+                <span style={{ fontSize: '0.9rem', fontWeight: 800, color: '#09090b', display: 'block' }}>2024 Shiftly Certified Box Truck</span>
+                <span style={{ fontSize: '0.75rem', color: '#64748b' }}>License Plate: <strong style={{ color: '#09090b' }}>{activeDriver.vehiclePlate || 'SH-2024-XF'}</strong></span>
               </div>
               <span style={{ padding: '4px 8px', borderRadius: '8px', background: '#f1f5f9', fontSize: '0.75rem', fontWeight: 700, color: '#09090b' }}>
                 26 Foot
@@ -190,7 +199,7 @@ export default function DriverProfileModal({ onClose }) {
                 📦 Payload: <strong>10,000 lbs</strong>
               </div>
               <div style={{ fontSize: '0.75rem', color: '#475569' }}>
-                🛡️ Cargo Insurance: <strong style={{ color: '#22c55e' }}>$100k Active</strong>
+                🛡️ Cargo Insurance: <strong style={{ color: '#22c55e' }}>Shiftly Shield Pro</strong>
               </div>
               <div style={{ fontSize: '0.75rem', color: '#475569' }}>
                 🧰 Dollies & Straps: <strong>16 Units</strong>
@@ -207,20 +216,20 @@ export default function DriverProfileModal({ onClose }) {
           <div style={{ background: '#f8fafc', borderRadius: '14px', border: '1px solid #e2e8f0', padding: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
               <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Phone Number</span>
-              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#09090b' }}>+1 (555) 392-8190</span>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#09090b' }}>{activeDriver.phone || '+44 7378 142815'}</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
               <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Email</span>
-              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#09090b' }}>marcus.vance@shiftly.io</span>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#09090b' }}>{activeDriver.name?.toLowerCase().replace(/\s+/g, '.')}@shiftly.com</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
               <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Home Hub</span>
-              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#09090b' }}>Boston Metro & New England</span>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#09090b' }}>{locationPreset?.city || 'London'} Metro & Region</span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Background Check</span>
               <span style={{ fontSize: '0.75rem', fontWeight: 800, color: '#22c55e', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                <CheckCircle2 size={12} /> CLEARED (Sep 2026)
+                <CheckCircle2 size={12} /> CLEARED (Active Verified)
               </span>
             </div>
           </div>

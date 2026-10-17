@@ -1,7 +1,11 @@
 import React, { useState } from 'react';
 import { Star, CheckCircle2, Heart, Award, Sparkles, X, ThumbsUp } from 'lucide-react';
+import { formatCurrencyPrice, getCurrencyForCountryCode } from '../utils/currencyUtils';
 
 export default function MoveCompletionModal({ booking, onClose }) {
+  const userCountryCode = booking?.countryCode || (typeof window !== 'undefined' ? (localStorage.getItem('shiftly_user_country_code') || '+44') : '+44');
+  const currencyConfig = getCurrencyForCountryCode(userCountryCode);
+
   const [rating, setRating] = useState(5);
   const [tipAmount, setTipAmount] = useState(20);
   const [customTip, setCustomTip] = useState('');
@@ -52,7 +56,7 @@ export default function MoveCompletionModal({ booking, onClose }) {
                     Rate & Tip Driver
                   </h3>
                   <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                    {booking?.driver?.name || 'Marcus Vance'} • {booking?.id || 'SHFT-849201'}
+                    {booking?.driver?.name || 'Assigned Lead Mover'} • {booking?.id || 'SHFT-849201'}
                   </p>
                 </div>
               </div>
@@ -124,7 +128,7 @@ export default function MoveCompletionModal({ booking, onClose }) {
                 </span>
                 {finalTip > 0 && (
                   <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#0052ff' }}>
-                    +${finalTip.toFixed(2)}
+                    +{formatCurrencyPrice(finalTip, userCountryCode)}
                   </span>
                 )}
               </div>
@@ -151,14 +155,14 @@ export default function MoveCompletionModal({ booking, onClose }) {
                       transition: 'all 0.15s ease'
                     }}
                   >
-                    ${amt}
+                    {formatCurrencyPrice(amt, userCountryCode, false)}
                   </button>
                 ))}
               </div>
 
               <input
                 type="number"
-                placeholder="Or enter custom tip ($ USD)"
+                placeholder={`Or enter custom tip (${currencyConfig.currencyCode})`}
                 value={customTip}
                 onChange={(e) => {
                   setCustomTip(e.target.value);
@@ -178,7 +182,7 @@ export default function MoveCompletionModal({ booking, onClose }) {
             </div>
 
             <button className="btn-black" onClick={handleFinish}>
-              Submit Rating & Tip {finalTip > 0 ? `($${finalTip.toFixed(2)})` : ''} →
+              Submit Rating & Tip {finalTip > 0 ? `(${formatCurrencyPrice(finalTip, userCountryCode)})` : ''} →
             </button>
           </div>
         ) : (
