@@ -5,20 +5,24 @@ import {
 } from 'lucide-react';
 import ShiftlyLogo from './ShiftlyLogo';
 import { triggerHaptic } from '../utils/nativeBridge';
+import { getLocationPreset } from '../utils/locationPresets';
 
 export default function ProofOfDeliveryViewer({ podData, onClose }) {
+  const userCountryCode = typeof window !== 'undefined' ? (localStorage.getItem('shiftly_user_country_code') || '+44') : '+44';
+  const locationPreset = getLocationPreset(userCountryCode);
+
   const data = podData || {
     podId: 'POD-2026-89421',
     formattedDate: new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
     formattedTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-    driverName: 'Marcus Vance',
-    driverPhone: '+44 7378 142815',
-    driverBadge: 'Shiftly Master Mover (4.98 ★)',
-    signerName: 'Sarah Jenkins',
+    driverName: locationPreset.mockDriver.name,
+    driverPhone: locationPreset.mockDriver.phone,
+    driverBadge: `Shiftly Master Mover (${locationPreset.mockDriver.rating})`,
+    signerName: 'Verified Customer',
     signatureUrl: null,
     conditionStatus: 'PRISTINE',
     driverNotes: 'All cargo placed safely in designated rooms. Zero transit damage observed.',
-    dropoffAddress: 'King’s Road, Chelsea, London, SW3 4ND',
+    dropoffAddress: locationPreset.defaultDropoff,
     totalItemsDelivered: 4,
     photos: [
       {

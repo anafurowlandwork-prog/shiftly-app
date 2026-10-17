@@ -30,13 +30,30 @@ export const POPULAR_LOCATIONS = {
   'austin': [30.2672, -97.7431],
   'miami': [25.7617, -80.1918],
 
-  // International
+  // International & African Hubs
   'lagos': [6.5244, 3.3792],
+  'victoria island': [6.4281, 3.4219],
+  'lekki': [6.4474, 3.4738],
+  'ikeja': [6.5880, 3.3540],
   'accra': [5.6037, -0.1870],
+  'east legon': [5.6350, -0.1580],
+  'airport residential': [5.6010, -0.1790],
+  'cantonments': [5.5790, -0.1730],
+  'osu': [5.5560, -0.1818],
+  'spintex': [5.6260, -0.0980],
+  'tema': [5.6560, -0.0160],
+  'kumasi': [6.6885, -1.6244],
+  'nairobi': [-1.2921, 36.8219],
+  'westlands': [-1.2675, 36.8120],
+  'kilimani': [-1.2980, 36.7880],
+  'johannesburg': [-26.2041, 28.0473],
+  'sandton': [-26.1076, 28.0567],
+  'cape town': [-33.9249, 18.4241],
   'toronto': [43.6532, -79.3832],
   'sydney': [-33.8688, 151.2093],
   'berlin': [52.5200, 13.4050],
-  'paris': [48.8566, 2.3522]
+  'paris': [48.8566, 2.3522],
+  'dubai': [25.2048, 55.2708]
 };
 
 // In-memory prediction cache for duplicate keystrokes
@@ -122,9 +139,11 @@ export async function searchGooglePlaces(query, countryCode = '+44', sessionToke
 
   // 2. Fallback to OpenStreetMap Nominatim for offline / keyless testing
   try {
+    const region = mapCountryCodeToRegion(countryCode);
+    const countryParam = region ? `&countrycodes=${encodeURIComponent(region)}` : '';
     const encoded = encodeURIComponent(trimmedQuery);
     const osmRes = await fetch(
-      `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=5&addressdetails=1`,
+      `https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=5&addressdetails=1${countryParam}`,
       {
         headers: {
           'Accept': 'application/json'
@@ -155,6 +174,8 @@ export async function searchGooglePlaces(query, countryCode = '+44', sessionToke
   return [];
 }
 
+import { getLocationPreset } from '../utils/locationPresets';
+
 /**
  * Fetches place details and precise GPS coordinates for a given placeId
  *
@@ -164,12 +185,15 @@ export async function searchGooglePlaces(query, countryCode = '+44', sessionToke
  * @returns {Promise<{placeId: string, formattedAddress: string, lat: number, lng: number}>}
  */
 export async function getGooglePlaceDetails(placeId, address = '', sessionToken = null) {
+  const userCountryCode = typeof window !== 'undefined' ? (localStorage.getItem('shiftly_user_country_code') || '+44') : '+44';
+  const preset = getLocationPreset(userCountryCode);
+
   if (!placeId && !address) {
     return {
       placeId: 'default',
-      formattedAddress: 'London, UK',
-      lat: 51.5074,
-      lng: -0.1278
+      formattedAddress: preset.defaultPickup,
+      lat: preset.defaultCoords[0],
+      lng: preset.defaultCoords[1]
     };
   }
 
@@ -240,9 +264,9 @@ export async function getGooglePlaceDetails(placeId, address = '', sessionToken 
 
   return {
     placeId: placeId || 'default',
-    formattedAddress: address || 'London, UK',
-    lat: 51.5074,
-    lng: -0.1278,
+    formattedAddress: address || preset.defaultPickup,
+    lat: preset.defaultCoords[0],
+    lng: preset.defaultCoords[1],
     source: 'default-fallback'
   };
 }

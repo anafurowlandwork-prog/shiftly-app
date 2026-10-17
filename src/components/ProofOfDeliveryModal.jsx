@@ -4,8 +4,11 @@ import {
   MapPin, Clock, User, FileText, Image as ImageIcon, AlertCircle, ArrowRight, Sparkles 
 } from 'lucide-react';
 import { triggerHaptic } from '../utils/nativeBridge';
+import { getLocationPreset } from '../utils/locationPresets';
 
 export default function ProofOfDeliveryModal({ activeJob, onCompleteDelivery, onClose }) {
+  const userCountryCode = typeof window !== 'undefined' ? (localStorage.getItem('shiftly_user_country_code') || '+44') : '+44';
+  const locationPreset = getLocationPreset(userCountryCode);
   const [cargoPhotos, setCargoPhotos] = useState([
     {
       id: 1,
@@ -131,15 +134,15 @@ export default function ProofOfDeliveryModal({ activeJob, onCompleteDelivery, on
       timestamp: new Date().toISOString(),
       formattedDate: new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
       formattedTime: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      driverName: 'Marcus Vance',
-      driverPhone: '+44 7378 142815',
+      driverName: activeJob?.driver?.name || locationPreset.mockDriver.name,
+      driverPhone: activeJob?.driver?.phone || locationPreset.mockDriver.phone,
       driverBadge: 'Shiftly Certified Master Mover',
-      signerName: signerName || 'Sarah Jenkins',
+      signerName: signerName || 'Verified Customer',
       signatureUrl: signatureDataUrl || canvasRef.current?.toDataURL('image/png') || null,
       conditionStatus: conditionStatus,
       driverNotes: driverNotes,
       photos: cargoPhotos,
-      dropoffAddress: activeJob?.dropoff || 'King’s Road, Chelsea, London',
+      dropoffAddress: activeJob?.dropoff || locationPreset.defaultDropoff,
       totalItemsDelivered: activeJob?.items?.length || 4,
       payoutAmount: activeJob?.payout || 165.00
     };
@@ -251,7 +254,7 @@ export default function ProofOfDeliveryModal({ activeJob, onCompleteDelivery, on
                     Delivered To
                   </span>
                   <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#09090b' }}>
-                    {activeJob?.dropoff || 'King’s Road, Chelsea, London, SW3 4ND'}
+                    {activeJob?.dropoff || locationPreset.defaultDropoff}
                   </span>
                 </div>
               </div>

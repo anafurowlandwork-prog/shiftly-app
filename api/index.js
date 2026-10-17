@@ -972,12 +972,12 @@ STRICT JSON OUTPUT SCHEMA:
 
     const apiKey = process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
 
+    const regionCode = (countryCode || '').toString().toLowerCase().replace('+', '').trim();
+    const regionMap = { '1': 'us', '44': 'gb', '233': 'gh', '234': 'ng', '254': 'ke', '27': 'za', '49': 'de', '33': 'fr', '971': 'ae', '61': 'au' };
+    const effectiveRegion = regionMap[regionCode] || (regionCode.length === 2 ? regionCode : 'gb');
+
     if (apiKey) {
       try {
-        const regionCode = countryCode.toLowerCase().replace('+', '');
-        const regionMap = { '1': 'us', '44': 'gb', '233': 'gh', '234': 'ng', '254': 'ke', '27': 'za', '49': 'de', '33': 'fr', '971': 'ae' };
-        const effectiveRegion = regionMap[regionCode] || (regionCode.length === 2 ? regionCode : 'gb');
-
         const googleRes = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
           method: 'POST',
           headers: {
@@ -1016,7 +1016,8 @@ STRICT JSON OUTPUT SCHEMA:
     // High-speed fallback suggestion generator & OpenStreetMap fallback
     try {
       const encoded = encodeURIComponent(input.trim());
-      const osmRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=5&addressdetails=1`, {
+      const countryParam = effectiveRegion ? `&countrycodes=${encodeURIComponent(effectiveRegion)}` : '';
+      const osmRes = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encoded}&limit=5&addressdetails=1${countryParam}`, {
         headers: { 'Accept': 'application/json' }
       });
       if (osmRes.ok) {

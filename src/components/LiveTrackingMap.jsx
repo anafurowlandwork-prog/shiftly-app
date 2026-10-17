@@ -7,9 +7,10 @@ import MoverProfileModal from './MoverProfileModal';
 import MoveCompletionModal from './MoveCompletionModal';
 import ProofOfDeliveryViewer from './ProofOfDeliveryViewer';
 import { generateInterpolatedRoute, geocodeAddress, calculateDistanceMiles } from '../utils/geoUtils';
+import { getLocationPreset } from '../utils/locationPresets';
 
 export const MOVE_STAGES = [
-  { key: 'ASSIGNED', title: 'Mover Assigned', sub: 'Marcus is preparing vehicle & equipment', progress: 15 },
+  { key: 'ASSIGNED', title: 'Mover Assigned', sub: 'Driver is preparing vehicle & equipment', progress: 15 },
   { key: 'EN_ROUTE_PICKUP', title: 'Approaching Pickup', sub: 'Driver 8 mins away in Shiftly Flex', progress: 35 },
   { key: 'LOADING', title: 'Loading Cargo', sub: 'Crew carefully padding & loading items', progress: 55 },
   { key: 'IN_TRANSIT', title: 'In Transit to Destination', sub: 'Live GPS navigation tracking active', progress: 80 },
@@ -19,6 +20,7 @@ export const MOVE_STAGES = [
 
 export default function LiveTrackingMap({ 
   booking, 
+  authUser,
   syncedDriverStatus,
   sharedMessages = [],
   onSendCustomerMessage
@@ -29,18 +31,18 @@ export default function LiveTrackingMap({
   const polylineRef = useRef(null);
   const pickupMarkerRef = useRef(null);
   const dropoffMarkerRef = useRef(null);
+
+  // Dynamic Country Location Preset
+  const userCountryCode = booking?.countryCode || authUser?.countryCode || (typeof window !== 'undefined' ? (localStorage.getItem('shiftly_user_country_code') || '+44') : '+44');
+  const locationPreset = getLocationPreset(userCountryCode);
   
   const [pointIndex, setPointIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [currentStageIdx, setCurrentStageIdx] = useState(3);
   const [isPodViewerOpen, setIsPodViewerOpen] = useState(false);
-  const [dynamicRoute, setDynamicRoute] = useState([
-    [51.5154, -0.1419],
-    [51.5110, -0.1480],
-    [51.5050, -0.1550],
-    [51.4980, -0.1620],
-    [51.4875, -0.1687]
-  ]);
+  const [dynamicRoute, setDynamicRoute] = useState(() => {
+    return generateInterpolatedRoute(locationPreset.pickupCoords, locationPreset.dropoffCoords, 8);
+  });
   
   // Modals
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -50,22 +52,16 @@ export default function LiveTrackingMap({
 
   const activeBooking = booking || {
     id: 'SHFT-849201',
-    pickup: 'Oxford Street, London, W1D 1BS',
-    dropoff: 'King’s Road, Chelsea, London, SW3 4ND',
-    pickupCoordinates: [51.5154, -0.1419],
-    dropoffCoordinates: [51.4875, -0.1687],
-    distanceMiles: 3.2,
+    pickup: locationPreset.defaultPickup,
+    dropoff: locationPreset.defaultDropoff,
+    pickupCoordinates: locationPreset.pickupCoords,
+    dropoffCoordinates: locationPreset.dropoffCoords,
+    distanceMiles: locationPreset.distanceMiles,
     moveSize: '1-2 Bedroom Apt',
     vehicle: { name: 'Shiftly Flex', image: '/assets/truck.png' },
     helpers: 2,
-    driver: {
-      name: 'Marcus Vance',
-      rating: '4.98 ★',
-      trips: '480 moves',
-      phone: '+44 7378 142815',
-      vehiclePlate: 'LX24 XFR',
-      photo: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=256&q=80',
-    },
+    countryCode: userCountryCode,
+    driver: locationPreset.mockDriver,
   };
 
   // Resolve Real Geocoded Coordinates for the Booking
@@ -82,8 +78,8 @@ export default function LiveTrackingMap({
         end = await geocodeAddress(activeBooking.dropoff);
       }
 
-      start = start || [51.5154, -0.1419];
-      end = end || [51.4875, -0.1687];
+      start = start || locationPreset.pickupCoords;
+      end = end || locationPreset.dropoffCoords;
 
       const points = generateInterpolatedRoute(start, end, 10);
       if (isMounted) {

@@ -9,10 +9,24 @@ import ShiftlyLogo from './ShiftlyLogo';
 import TermsOfServiceModal from './TermsOfServiceModal';
 import PrivacyPolicyModal from './PrivacyPolicyModal';
 import { triggerHaptic } from '../utils/nativeBridge';
+import { getLocationPreset } from '../utils/locationPresets';
+
+const REGION_OPTIONS = [
+  { code: '+233', name: 'Ghana', flag: '🇬🇭', city: 'Accra', currency: 'GHS' },
+  { code: '+44', name: 'United Kingdom', flag: '🇬🇧', city: 'London', currency: 'GBP' },
+  { code: '+1', name: 'United States', flag: '🇺🇸', city: 'Boston', currency: 'USD' },
+  { code: '+234', name: 'Nigeria', flag: '🇳🇬', city: 'Lagos', currency: 'NGN' },
+  { code: '+254', name: 'Kenya', flag: '🇰🇪', city: 'Nairobi', currency: 'KES' },
+  { code: '+27', name: 'South Africa', flag: '🇿🇦', city: 'Johannesburg', currency: 'ZAR' },
+  { code: '+33', name: 'France', flag: '🇫🇷', city: 'Paris', currency: 'EUR' },
+  { code: '+49', name: 'Germany', flag: '🇩🇪', city: 'Berlin', currency: 'EUR' },
+  { code: '+971', name: 'UAE', flag: '🇦🇪', city: 'Dubai', currency: 'AED' }
+];
 
 export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onUpdateUser }) {
   const [isTermsOpen, setIsTermsOpen] = useState(false);
   const [isPrivacyOpen, setIsPrivacyOpen] = useState(false);
+  const [isRegionPickerOpen, setIsRegionPickerOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [uploadToast, setUploadToast] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -33,11 +47,12 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
     }
   }, [authUser?.photoUrl]);
 
-  const displayUser = authUser?.recipient || (authUser?.isGuest ? 'Guest User' : 'Sarah Jenkins');
-  const userPhone = authUser?.phone || '+44 7911 123456';
-  const userEmail = authUser?.email || 'sarah.jenkins@example.com';
-  const userCountry = authUser?.countryName || 'United Kingdom';
-  const userCountryCode = authUser?.countryCode || '+44';
+  const userCountryCode = authUser?.countryCode || (typeof window !== 'undefined' ? (localStorage.getItem('shiftly_user_country_code') || '+44') : '+44');
+  const locationPreset = getLocationPreset(userCountryCode);
+  const userCountry = authUser?.countryName || locationPreset.country;
+  const displayUser = authUser?.recipient || (authUser?.isGuest ? 'Guest User' : 'Valued Customer');
+  const userPhone = authUser?.phone || (authUser?.method === 'phone' ? authUser?.recipient : locationPreset.mockDriver.phone);
+  const userEmail = authUser?.email || (authUser?.method === 'email' ? authUser?.recipient : 'user@shiftly.com');
 
   const handleConfirmLogout = () => {
     triggerHaptic('medium');
@@ -383,17 +398,108 @@ export default function AccountScreen({ authUser, onLogout, onNavigateToTab, onU
           <span style={{ fontSize: '0.72rem', color: '#16a34a', fontWeight: 700 }}>✓ Synced</span>
         </div>
 
-        <div style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div 
+          onClick={() => setIsRegionPickerOpen(true)}
+          style={{ padding: '12px 16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', transition: 'background 0.15s ease' }}
+          onMouseEnter={(e) => e.currentTarget.style.background = '#f8fafc'}
+          onMouseLeave={(e) => e.currentTarget.style.background = '#ffffff'}
+        >
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <Globe size={16} color="#0052ff" />
             <div>
-              <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 800, textTransform: 'uppercase', display: 'block' }}>Preferred Region</span>
-              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#09090b' }}>{userCountry} ({userCountryCode})</span>
+              <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 800, textTransform: 'uppercase', display: 'block' }}>Preferred Region & Currency</span>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#09090b' }}>
+                {locationPreset.flag} {userCountry} • {locationPreset.city} ({userCountryCode})
+              </span>
             </div>
           </div>
-          <span style={{ fontSize: '0.72rem', color: '#64748b', fontWeight: 700 }}>Auto-Detect</span>
+          <span style={{ fontSize: '0.75rem', color: '#0052ff', fontWeight: 700, background: 'rgba(0, 82, 255, 0.08)', padding: '4px 10px', borderRadius: '12px' }}>
+            Switch ▾
+          </span>
         </div>
       </div>
+
+      {/* Region Picker Modal */}
+      {isRegionPickerOpen && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}>
+          <div style={{ background: '#ffffff', borderRadius: '24px', width: '100%', maxWidth: '380px', maxHeight: '80vh', overflowY: 'auto', padding: '20px', boxShadow: '0 20px 40px rgba(0,0,0,0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Globe size={20} color="#0052ff" />
+                <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800, color: '#09090b' }}>Select Region & Cities</h3>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setIsRegionPickerOpen(false)}
+                style={{ background: '#f1f5f9', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              >
+                <X size={16} color="#64748b" />
+              </button>
+            </div>
+
+            <p style={{ fontSize: '0.8rem', color: '#64748b', margin: '0 0 14px 0' }}>
+              Switching your region immediately updates your map coordinates, address suggestions, vehicle rates, and currency.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {REGION_OPTIONS.map((reg) => {
+                const isSelected = userCountryCode === reg.code;
+                return (
+                  <button
+                    key={reg.code}
+                    type="button"
+                    onClick={() => {
+                      triggerHaptic('success');
+                      try {
+                        localStorage.setItem('shiftly_user_country_code', reg.code);
+                      } catch (e) {}
+
+                      const updatedUser = {
+                        ...(authUser || { recipient: displayUser, phone: userPhone, email: userEmail }),
+                        countryCode: reg.code,
+                        countryName: reg.name
+                      };
+
+                      try {
+                        localStorage.setItem('shiftly_auth_user', JSON.stringify(updatedUser));
+                      } catch (e) {}
+
+                      if (onUpdateUser) onUpdateUser(updatedUser);
+                      setIsRegionPickerOpen(false);
+                      setUploadToast(`Switched region to ${reg.flag} ${reg.name} (${reg.city})! ✓`);
+                      setTimeout(() => setUploadToast(null), 3000);
+                    }}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '12px 14px',
+                      borderRadius: '14px',
+                      border: isSelected ? '2px solid #0052ff' : '1px solid #e2e8f0',
+                      background: isSelected ? 'rgba(0, 82, 255, 0.04)' : '#ffffff',
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '1.4rem' }}>{reg.flag}</span>
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: '0.88rem', color: '#09090b' }}>
+                          {reg.name} ({reg.city})
+                        </div>
+                        <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                          Phone code: {reg.code} • Currency: {reg.currency}
+                        </div>
+                      </div>
+                    </div>
+                    {isSelected && <Check size={18} color="#0052ff" />}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Shiftly Protection & Perks */}
       <div style={{ background: '#ffffff', borderRadius: '18px', border: '1px solid #e2e8f0', padding: '14px 16px', marginBottom: '18px' }}>

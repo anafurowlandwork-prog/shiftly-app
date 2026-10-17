@@ -10,14 +10,20 @@ import DriverChatSheet from './DriverChatSheet';
 import DriverEarningsModal from './DriverEarningsModal';
 import ProofOfDeliveryModal from './ProofOfDeliveryModal';
 import ProofOfDeliveryViewer from './ProofOfDeliveryViewer';
+import { getLocationPreset } from '../utils/locationPresets';
+import { formatCurrencyPrice } from '../utils/currencyUtils';
 
 export default function DriverPortal({ 
+  authUser,
   currentBooking,
   onSyncStatusWithCustomer, 
   onSwitchToCustomer,
   sharedMessages = [],
   onSendDriverMessage
 }) {
+  const userCountryCode = currentBooking?.countryCode || authUser?.countryCode || (typeof window !== 'undefined' ? (localStorage.getItem('shiftly_user_country_code') || '+44') : '+44');
+  const locationPreset = getLocationPreset(userCountryCode);
+
   const [isOnline, setIsOnline] = useState(true);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -43,13 +49,13 @@ export default function DriverPortal({
   // Real or Incoming Job Offer
   const sampleOffer = currentBooking ? {
     id: currentBooking.id || 'SHFT-8942',
-    customerName: 'Customer',
-    customerPhone: '+44 7378 142815',
+    customerName: currentBooking.customerName || authUser?.recipient || 'Customer',
+    customerPhone: currentBooking.customerPhone || authUser?.phone || locationPreset.mockDriver.phone,
     payout: Number(currentBooking.total || 165),
-    distance: `${currentBooking.distanceMiles || 3.8} mi`,
+    distance: `${currentBooking.distanceMiles || locationPreset.distanceMiles} mi`,
     duration: '35 mins',
-    pickup: currentBooking.pickup || 'Oxford Street, London',
-    dropoff: currentBooking.dropoff || 'King’s Road, Chelsea, London',
+    pickup: currentBooking.pickup || locationPreset.defaultPickup,
+    dropoff: currentBooking.dropoff || locationPreset.defaultDropoff,
     vehicleTier: currentBooking.vehicle?.name || 'Shiftly Flex',
     items: [
       { name: 'Living Room Furniture', qty: 1, weight: '140 lbs' },
@@ -60,13 +66,13 @@ export default function DriverPortal({
     helpersNeeded: currentBooking.helpers || 2
   } : {
     id: 'SH-8942',
-    customerName: 'Verified Customer',
-    customerPhone: '+44 7378 142815',
+    customerName: authUser?.recipient || 'Verified Customer',
+    customerPhone: authUser?.phone || locationPreset.mockDriver.phone,
     payout: 165.00,
-    distance: '3.8 mi',
+    distance: `${locationPreset.distanceMiles} mi`,
     duration: '35 mins',
-    pickup: 'Oxford Street, London, W1D 1BS',
-    dropoff: 'King’s Road, Chelsea, London, SW3 4ND',
+    pickup: locationPreset.defaultPickup,
+    dropoff: locationPreset.defaultDropoff,
     vehicleTier: 'Shiftly Flex (Box Truck)',
     items: [
       { name: '3-Seater Velvet Sofa', qty: 1, weight: '140 lbs' },
@@ -228,7 +234,7 @@ export default function DriverPortal({
           title="Click to open Stripe Connect Wallet"
         >
           <span style={{ fontSize: '0.7rem', color: '#0052ff', fontWeight: 700, display: 'block', textTransform: 'uppercase' }}>Today's Pay ⚡</span>
-          <span style={{ fontSize: '1.15rem', color: '#09090b', fontWeight: 900 }}>${todayEarnings.toFixed(2)}</span>
+          <span style={{ fontSize: '1.15rem', color: '#09090b', fontWeight: 900 }}>{formatCurrencyPrice(todayEarnings, userCountryCode)}</span>
         </div>
         <div style={{ background: '#f8fafc', padding: '12px 10px', borderRadius: '12px', textAlign: 'center', border: '1px solid #e2e8f0' }}>
           <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600, display: 'block', textTransform: 'uppercase' }}>Shifts Done</span>
@@ -250,7 +256,7 @@ export default function DriverPortal({
               ACTIVE SHIFT #{activeJob.id}
             </span>
             <span style={{ fontSize: '1.1rem', fontWeight: 900, color: '#ffffff' }}>
-              +${activeJob.payout.toFixed(2)}
+              +{formatCurrencyPrice(activeJob.payout, userCountryCode)}
             </span>
           </div>
 
@@ -408,7 +414,7 @@ export default function DriverPortal({
               </span>
             </div>
             <span style={{ fontSize: '1.35rem', fontWeight: 900, color: '#09090b' }}>
-              ${incomingOffer.payout.toFixed(2)}
+              {formatCurrencyPrice(incomingOffer.payout, userCountryCode)}
             </span>
           </div>
 

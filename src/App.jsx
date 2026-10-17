@@ -276,12 +276,16 @@ export default function App() {
             )}
 
             {activeTab === 'book' && (
-              <BookingWizard onBookingConfirmed={handleBookingConfirmed} />
+              <BookingWizard 
+                authUser={authUser} 
+                onBookingConfirmed={handleBookingConfirmed} 
+              />
             )}
 
             {activeTab === 'track' && (
               <LiveTrackingMap 
                 booking={currentBooking} 
+                authUser={authUser}
                 syncedDriverStatus={driverSyncedStatus}
                 sharedMessages={chatMessages}
                 onSendCustomerMessage={handleSendCustomerMessage}
@@ -343,6 +347,7 @@ export default function App() {
             {/* Driver Partner Dispatch Portal */}
             {activeTab === 'driver' && (
               <DriverPortal 
+                authUser={authUser}
                 currentBooking={currentBooking}
                 onSyncStatusWithCustomer={handleDriverStatusSync}
                 sharedMessages={chatMessages}

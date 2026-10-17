@@ -8,10 +8,15 @@ import ShiftlyShieldModal, { SHIELD_TIERS } from './ShiftlyShieldModal';
 import { createMoveBooking, sendBookingNotification } from '../services/backendService';
 import { searchAddressSuggestions, geocodeAddress, calculateDistanceMiles } from '../utils/geoUtils';
 import { formatCurrencyPrice, getCurrencyForCountryCode } from '../utils/currencyUtils';
+import { getLocationPreset } from '../utils/locationPresets';
 
-export default function BookingWizard({ onBookingConfirmed }) {
+export default function BookingWizard({ authUser, onBookingConfirmed }) {
   const [step, setStep] = useState(1);
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+
+  // Dynamic Country Code, Location Presets & Currency
+  const userCountryCode = authUser?.countryCode || (typeof window !== 'undefined' ? (localStorage.getItem('shiftly_user_country_code') || '+44') : '+44');
+  const locationPreset = getLocationPreset(userCountryCode);
 
   // Form State - Starts empty with intuitive placeholders
   const [pickupAddress, setPickupAddress] = useState('');
@@ -28,9 +33,6 @@ export default function BookingWizard({ onBookingConfirmed }) {
   const [dropoffSuggestions, setDropoffSuggestions] = useState([]);
   const [isSearchingPickup, setIsSearchingPickup] = useState(false);
   const [isSearchingDropoff, setIsSearchingDropoff] = useState(false);
-
-  // Dynamic Country Code & Currency
-  const userCountryCode = typeof window !== 'undefined' ? (localStorage.getItem('shiftly_user_country_code') || '+44') : '+44';
 
   // Schedule Window (Today, Tomorrow, or Custom Exact Date)
   const [dateType, setDateType] = useState('today'); // 'today' | 'tomorrow' | 'custom'
@@ -158,24 +160,24 @@ export default function BookingWizard({ onBookingConfirmed }) {
       if (rawUser) authUserData = JSON.parse(rawUser);
     } catch (e) {}
 
-    const customerPhone = authUserData?.phone || (authUserData?.method === 'phone' ? authUserData?.recipient : '+44 7911 123456');
-    const customerEmail = authUserData?.email || (authUserData?.method === 'email' ? authUserData?.recipient : 'sarah.jenkins@example.com');
-    const customerName = authUserData?.recipient || (authUserData?.isGuest ? 'Guest User' : 'Sarah Jenkins');
+    const customerPhone = authUserData?.phone || (authUserData?.method === 'phone' ? authUserData?.recipient : locationPreset.mockDriver.phone);
+    const customerEmail = authUserData?.email || (authUserData?.method === 'email' ? authUserData?.recipient : 'user@shiftly.com');
+    const customerName = authUserData?.recipient || (authUserData?.isGuest ? 'Guest User' : 'Valued Customer');
 
     // Instant coordinates without waiting on network geocoding during checkout
-    const finalPickupCoords = pickupCoords || [51.5074, -0.1278];
-    const finalDropoffCoords = dropoffCoords || [51.5155, -0.1419];
+    const finalPickupCoords = pickupCoords || locationPreset.pickupCoords;
+    const finalDropoffCoords = dropoffCoords || locationPreset.dropoffCoords;
 
     const newBooking = {
       id: 'SHFT-' + Math.floor(100000 + Math.random() * 900000),
       customerName: customerName,
       customerPhone: customerPhone,
       customerEmail: customerEmail,
-      pickup: pickupAddress || '10 Oxford St, London',
-      dropoff: dropoffAddress || '25 King’s Rd, London',
+      pickup: pickupAddress || locationPreset.defaultPickup,
+      dropoff: dropoffAddress || locationPreset.defaultDropoff,
       pickupCoordinates: finalPickupCoords,
       dropoffCoordinates: finalDropoffCoords,
-      distanceMiles: calculatedDistance || 4.2,
+      distanceMiles: calculatedDistance || locationPreset.distanceMiles,
       viaStop: hasViaStop ? viaStopAddress : null,
       date: getEffectiveMoveDate(),
       time: timeSlot,
@@ -312,7 +314,7 @@ export default function BookingWizard({ onBookingConfirmed }) {
                   style={{ fontSize: '0.925rem' }}
                   value={pickupAddress}
                   onChange={(e) => setPickupAddress(e.target.value)}
-                  placeholder="e.g. 10 Oxford Street, London or Postcode"
+                  placeholder={locationPreset.placeholderPickup}
                 />
               </div>
 
@@ -405,7 +407,7 @@ export default function BookingWizard({ onBookingConfirmed }) {
                   style={{ fontSize: '0.925rem' }}
                   value={dropoffAddress}
                   onChange={(e) => setDropoffAddress(e.target.value)}
-                  placeholder="e.g. 25 King's Road, London or Postcode"
+                  placeholder={locationPreset.placeholderDropoff}
                 />
               </div>
 
@@ -469,44 +471,21 @@ export default function BookingWizard({ onBookingConfirmed }) {
 
             {/* Quick Popular Locations & Action Chips */}
             <div style={{ display: 'flex', gap: '6px', marginTop: '14px', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={async () => {
-                  setPickupAddress('Oxford Street, London, W1D 1BS, UK');
-                  setPickupCoords([51.5154, -0.1419]);
-                  setDropoffAddress('King’s Road, Chelsea, London, SW3 4ND, UK');
-                  setDropoffCoords([51.4875, -0.1687]);
-                }}
-                style={{ background: 'var(--bg-input)', border: '1px solid #e2e8f0', color: '#09090b', padding: '6px 10px', borderRadius: '10px', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-              >
-                🇬🇧 London Route
-              </button>
-
-              <button
-                type="button"
-                onClick={async () => {
-                  setPickupAddress('Manchester City Centre, M1 1AE, UK');
-                  setPickupCoords([53.4808, -2.2426]);
-                  setDropoffAddress('MediaCityUK, Salford, M50 2EQ, UK');
-                  setDropoffCoords([53.4722, -2.2985]);
-                }}
-                style={{ background: 'var(--bg-input)', border: '1px solid #e2e8f0', color: '#09090b', padding: '6px 10px', borderRadius: '10px', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-              >
-                🇬🇧 Manchester Route
-              </button>
-
-              <button
-                type="button"
-                onClick={async () => {
-                  setPickupAddress('742 Evergreen Terrace, Boston, MA');
-                  setPickupCoords([42.352, -71.058]);
-                  setDropoffAddress('1200 Beacon Street, Brookline, MA');
-                  setDropoffCoords([42.343, -71.115]);
-                }}
-                style={{ background: 'var(--bg-input)', border: '1px solid #e2e8f0', color: '#09090b', padding: '6px 10px', borderRadius: '10px', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
-              >
-                🇺🇸 Boston Route
-              </button>
+              {(locationPreset.quickRoutes || []).map((route, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setPickupAddress(route.pickup);
+                    setPickupCoords(route.pickupCoords);
+                    setDropoffAddress(route.dropoff);
+                    setDropoffCoords(route.dropoffCoords);
+                  }}
+                  style={{ background: 'var(--bg-input)', border: '1px solid #e2e8f0', color: '#09090b', padding: '6px 10px', borderRadius: '10px', fontSize: '0.74rem', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                >
+                  {route.name}
+                </button>
+              ))}
 
               <button
                 type="button"
